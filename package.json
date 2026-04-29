@@ -1,0 +1,28 @@
+{
+  "name": "cipher.gg",
+  "version": "1.0.0",
+  "description": "We are creating a real-time state orchestration engine for social deduction games (like Avalon!) as our Orbital Project!",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/isaacser8/Cipher.gg.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/isaacser8/Cipher.gg/issues"
+  },
+  "homepage": "https://github.com/isaacser8/Cipher.gg#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.6.0",
+    "socket.io": "^4.8.3"
+  }
+}
