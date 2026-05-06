@@ -6,8 +6,23 @@ function App() {
   const [message, setMessage] = useState('');
 
   const handleJoin = async (e: React.SyntheticEvent) => {
+    
     // prevents browser from refreshing page when submit is clicked
     e.preventDefault(); 
+
+    const cleanName = displayName.trim();
+    const cleanRoomCode = roomCode.trim().toUpperCase();
+    const nameRegex = /^[a-zA-Z0-9 ]{2,15}$/;
+    if (!nameRegex.test(cleanName)) {
+      setMessage("❌ Name must be 2-15 letters or numbers.");
+      return;
+    }
+    const roomRegex = /^[A-Z]{4,6}$/;
+    if (!roomRegex.test(cleanRoomCode)) {
+      setMessage("❌ Room code must be 4 to 6 letters.");
+      return;
+    }
+
     setMessage('Connecting to server...');
 
     try {
