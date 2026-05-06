@@ -40,7 +40,7 @@ function App() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage(`✅ Success! Welcome, ${data.player.displayName}.`);
+        setMessage(`✅ Success! Welcome to Cipher.gg, ${data.player.displayName}.`);
       } else {
         setMessage(`❌ ${data.error}`);
       }
