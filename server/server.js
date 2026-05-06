@@ -43,7 +43,7 @@ app.post('/api/join', async (req, res) => {
     });
 
     if (existingPlayer) {
-      return res.status(400).json({ error: "Name is already taken in this room!" });
+      return res.status(400).json({ error: "❌ Name is already taken in this room!" });
     }
 
     // Create new player
@@ -55,7 +55,7 @@ app.post('/api/join', async (req, res) => {
 
     // Push success message
     res.status(201).json({ 
-      message: "Successfully joined the lobby!", 
+      message: "✅ Successfully joined the lobby!", 
       player: newPlayer 
     });
 
