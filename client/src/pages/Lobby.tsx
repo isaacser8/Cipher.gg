@@ -235,7 +235,7 @@ export default function Lobby() {
                 <p className="text-slate-600 text-[10px]">(Only active for the host)</p>
              </div>
              
-             {/* READY UP BUTTON */}
+             {/* READY BUTTON */}
              <button 
                 onClick={() => setIsReady(!isReady)}
                 className={`px-12 py-4 rounded-full font-black uppercase tracking-widest shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 ${
