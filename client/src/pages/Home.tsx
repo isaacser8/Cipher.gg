@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, User as UserIcon, Lock } from 'lucide-react';
+import { ArrowRight, User as UserIcon, Lock, Plus, LogIn } from 'lucide-react';
 import { useUser, SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 
 export default function Home() {
   const navigate = useNavigate();
   const { user, isSignedIn } = useUser();
+  
+  const [mode, setMode] = useState<'join' | 'host'>('join');
   const [displayName, setDisplayName] = useState('');
   const [roomCode, setRoomCode] = useState('');
 
@@ -16,18 +18,35 @@ export default function Home() {
     }
   }, [isSignedIn, user]);
 
-  const handleJoin = (e: React.SyntheticEvent) => {
+  const generateSecureCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let result = '';
+    const randomArray = new Uint8Array(6);
+    crypto.getRandomValues(randomArray);
+    for (let i = 0; i < 6; i++) {
+      result += chars[randomArray[i] % chars.length];
+    }
+    return result;
+  };
+
+  const handleAction = (e: React.SyntheticEvent) => {
     e.preventDefault();
-    if (!displayName || !roomCode) return;
-    navigate(`/lobby/${roomCode.toUpperCase()}`, { state: { displayName } });
+    if (!displayName) return;
+
+    if (mode === 'host') {
+      const newRoomCode = generateSecureCode();
+      navigate(`/lobby/${newRoomCode}`, { state: { displayName, isHost: true } });
+    } else {
+      if (!roomCode) return;
+      navigate(`/lobby/${roomCode}`, { state: { displayName, isHost: false } });
+    }
   };
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#05070A] font-sans text-white relative overflow-hidden">
       
       {/* Background Ambience */}
-      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full pointer-events-none select-none" />
-      <div className="absolute top-1/3 left-10 text-[400px] font-black text-white/[0.02] rotate-12 pointer-events-none select-none">X</div>
+      <div className="absolute top-1/4 -left-20 w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
       <motion.div animate={{ y: [0, -20, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute bottom-1/4 -right-10 w-64 h-64 bg-cyan-500/10 blur-[100px] rounded-full" />
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-[550px] px-6">
@@ -38,7 +57,7 @@ export default function Home() {
 
         <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 shadow-2xl relative">
           
-          {/* --- CLERK: SIGNED IN VIEW --- */}
+          {/* --- CLERK AUTHENTICATION --- */}
           <SignedIn>
             <div className="mb-8 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -55,55 +74,72 @@ export default function Home() {
             </div>
           </SignedIn>
 
-          {/* --- CLERK: GUEST VIEW --- */}
           <SignedOut>
             <div className="mb-8">
               <SignInButton mode="modal">
-                <button className="w-full bg-gradient-to-r from-white/5 to-white/[0.02] hover:from-white/10 hover:to-white/5 border border-white/10 py-3 rounded-xl text-[10px] font-bold tracking-[0.2em] transition-all text-slate-400 hover:text-white mb-4">
-                  LINK IDENTITY TO SAVE PROGRESS
+                <button className="w-full bg-gradient-to-r from-white/5 to-white/[0.02] hover:from-white/10 border border-white/10 py-3 rounded-xl text-[10px] font-bold tracking-[0.2em] transition-all text-slate-400 hover:text-white mb-4">
+                  LINK ACCOUNT TO SAVE PROGRESS
                 </button>
               </SignInButton>
-              <div className="flex items-center gap-4 px-2">
-                <div className="h-[1px] bg-white/5 flex-grow" />
-                <span className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Or Continue as Guest</span>
-                <div className="h-[1px] bg-white/5 flex-grow" />
-              </div>
             </div>
           </SignedOut>
 
-          {/* --- Details Form --- */}
-          <form onSubmit={handleJoin} className="space-y-6 relative z-10">
+          {/* --- MODE TOGGLE TABS --- */}
+          <div className="flex bg-black/40 rounded-2xl p-1 mb-8 border border-white/10">
+            <button 
+              type="button"
+              onClick={() => setMode('join')}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${mode === 'join' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <LogIn className="w-4 h-4" /> Join Session
+            </button>
+            <button 
+              type="button"
+              onClick={() => setMode('host')}
+              className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${mode === 'host' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+            >
+              <Plus className="w-4 h-4" /> Host New
+            </button>
+          </div>
+
+          {/* --- CORE FORM --- */}
+          <form onSubmit={handleAction} className="space-y-6 relative z-10">
+            
+            {/* Name */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-400 ml-1">{isSignedIn ? 'Current Alias' : 'Guest Alias'}</label>
+              <label className="text-sm font-medium text-slate-400 ml-1">{isSignedIn ? 'Current Alias' : 'Display Name'}</label>
               <div className="relative group">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                 <input 
                   type="text" 
-                  placeholder="enter your name"
+                  placeholder="ENTER YOUR NAME"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''))}
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4..."
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all tracking-widest text-white"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-400 ml-1">room code</label>
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
-                <input 
-                  type="text" 
-                  placeholder="enter 6-digit code"
-                  value={roomCode}
-                  maxLength={6}
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                  className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 uppercase tracking-widest..."
-                />
-              </div>
-            </div>
+            {/* Room Code */}
+            {mode === 'join' && (
+              <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-2 overflow-hidden">
+                <label className="text-sm font-medium text-slate-400 ml-1">Room Code</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
+                  <input 
+                    type="text" 
+                    placeholder="enter 6-digit code"
+                    value={roomCode}
+                    maxLength={6}
+                    onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                    className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-purple-500/50 focus:ring-1 focus:ring-purple-500/20 transition-all uppercase tracking-widest text-white"
+                  />
+                </div>
+              </motion.div>
+            )}
 
-            <motion.button whileHover={{ scale: 1.02, boxShadow: "0 0 25px rgba(6, 182, 212, 0.4)" }} whileTap={{ scale: 0.98 }} className="w-full mt-4 bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-500 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl transition-all">
-              JOIN <ArrowRight className="w-5 h-5" />
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className={`w-full mt-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl transition-all ${mode === 'host' ? 'bg-gradient-to-r from-emerald-600 to-cyan-500' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}>
+              {mode === 'host' ? 'START SESSION' : 'JOIN SESSION'} <ArrowRight className="w-5 h-5" />
             </motion.button>
           </form>
         </div>
