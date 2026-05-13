@@ -1,19 +1,17 @@
 import { useState } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { useParams, useLocation } from 'react-router-dom';
 import { Shield, Clock, MessageSquare, Terminal, Send, UserCircle, Target, Skull } from 'lucide-react';
 
 export default function Game() {
   const { roomCode } = useParams();
   const location = useLocation();
-  const navigate = useNavigate();
   
   const myName = location.state?.displayName || 'Unknown Agent';
   
   const [activeTab, setActiveTab] = useState<'chat' | 'logs'>('logs');
   const [chatMessage, setChatMessage] = useState('');
 
-  const [gamePhase, setGamePhase] = useState('NIGHT PHASE');
+  const [gamePhase, ] = useState('NIGHT PHASE');
   const players = [
     { name: myName, status: 'alive', role: 'known' },
     { name: 'Agent Smith', status: 'alive', role: 'unknown' },
