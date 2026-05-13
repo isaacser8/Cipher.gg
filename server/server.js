@@ -18,7 +18,7 @@ const io = new Server(server, {
   }
 });
 
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5005;
 
 mongoose.connect(process.env.MONGO_URI)
   .then(() => {
@@ -31,59 +31,104 @@ mongoose.connect(process.env.MONGO_URI)
     console.error('❌ Error connecting to MongoDB:', error.message);
   });
 
+const rooms = {}; 
+const roomSettings = {};
 
-const roomRosters = {};
-
-io.on("connection", (socket) => {
+io.on('connection', (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
-  
-  let currentRoom = null;
-  let currentUser = null;
 
-  socket.on("join_room", (data) => {
-    currentRoom = data.roomCode;
-    currentUser = data.displayName;
-    socket.join(data.roomCode);
-
-    if (!roomRosters[data.roomCode]) {
-      roomRosters[data.roomCode] = [];
+  socket.on('join_room', ({ roomCode, displayName, action }) => {
+    if (action !== 'host' && !rooms[roomCode]) {
+      return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
     }
 
-    const exists = roomRosters[data.roomCode].find(p => p.name === data.displayName);
-    if (!exists) {
-      roomRosters[data.roomCode].push({ id: socket.id, name: data.displayName });
+    socket.join(roomCode);
+    if (!rooms[roomCode]) rooms[roomCode] = [];
+    if (!roomSettings[roomCode]) {
+      roomSettings[roomCode] = { teamSize: 10 };
+    }
+    socket.emit('settings_update', roomSettings[roomCode]);
+
+    const isFirstPlayer = rooms[roomCode].length === 0;
+    const existingPlayer = rooms[roomCode].find(p => p.name === displayName);
+    
+    if (!existingPlayer) {
+      rooms[roomCode].push({
+        id: socket.id,
+        name: displayName,
+        isHost: isFirstPlayer,
+        isReady: false,
+        isConnected: true 
+      });
+    } else {
+      existingPlayer.id = socket.id; 
+      existingPlayer.isConnected = true; 
     }
 
-    socket.to(data.roomCode).emit("player_joined", {
-      message: `${data.displayName} has entered the lobby.`,
-      user: data.displayName,
-      id: socket.id
-    });
+    socket.roomCode = roomCode; 
+    socket.displayName = displayName;
 
-    socket.emit("room_roster", roomRosters[data.roomCode]);
+    io.to(roomCode).emit('roster_update', rooms[roomCode]);
+    socket.to(roomCode).emit('player_joined', { user: displayName });
   });
 
-  socket.on("update_ready_status", (data) => {
-   const { roomCode, isReady } = data;
-  
-   if (roomRosters[roomCode]) {
-     const playerIndex = roomRosters[roomCode].findIndex(p => p.id === socket.id);
-     if (playerIndex !== -1) {
-       roomRosters[roomCode][playerIndex].isReady = isReady;
-       io.in(roomCode).emit("room_roster", roomRosters[roomCode]);
+  socket.on('status_update', ({ roomCode, isReady }) => {
+    if (rooms[roomCode]) {
+      const player = rooms[roomCode].find(p => p.id === socket.id);
+      if (player && player.isReady !== isReady) {
+        player.isReady = isReady;
+        io.to(roomCode).emit('roster_update', rooms[roomCode]);
+        io.to(roomCode).emit('player_ready_log', { 
+          name: player.name, 
+          isReady: isReady 
+        });
       }
     }
   });
 
-  socket.on("disconnect", () => {
+  socket.on('change_settings', ({ roomCode, teamSize }) => {
+    if (rooms[roomCode] && roomSettings[roomCode]) {
+      const requester = rooms[roomCode].find(p => p.id === socket.id);
+      if (requester && requester.isHost) {
+        roomSettings[roomCode].teamSize = teamSize;
+        io.to(roomCode).emit('settings_update', roomSettings[roomCode]);
+      }
+    }
+  });
+
+  socket.on('disconnect', () => {
     console.log(`🔌 Agent Disconnected: ${socket.id}`);
-    if (currentRoom && roomRosters[currentRoom]) {
-      roomRosters[currentRoom] = roomRosters[currentRoom].filter(p => p.id !== socket.id);
-      socket.to(currentRoom).emit("player_left", { id: socket.id, name: currentUser });
+    const room = socket.roomCode;
+    const name = socket.displayName;
+    
+    if (room && rooms[room]) {
+      const leavingPlayer = rooms[room].find(p => p.name === name);
+      if (leavingPlayer) leavingPlayer.isConnected = false;
+      setTimeout(() => {
+        if (rooms[room]) {
+          const checkPlayer = rooms[room].find(p => p.name === name);
+          
+          if (checkPlayer && checkPlayer.isConnected === false) {
+            rooms[room] = rooms[room].filter(p => p.name !== name);
+            
+            socket.to(room).emit('player_left', { id: socket.id, name: checkPlayer.name });
+
+            if (checkPlayer.isHost && rooms[room].length > 0) {
+              rooms[room][0].isHost = true; 
+            }
+          
+            if (rooms[room].length === 0) {
+              delete rooms[room];
+              delete roomSettings[room];
+            } else {
+              io.to(room).emit('roster_update', rooms[room]);
+            }
+          }
+        }
+      }, 3000);
     }
   });
 });
-
 
 app.get('/', (req, res) => {
   res.send('Cipher.gg API is running!');

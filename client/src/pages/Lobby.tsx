@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { useParams, useLocation, useNavigate} from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Copy, Share, Send, UserCircle, LogOut } from 'lucide-react';
+import { Shield, Copy, Share, Send, UserCircle, LogOut, Check } from 'lucide-react';
 
 interface Player {
   id: string;
   name: string;
+  isHost: boolean; 
+  isReady: boolean; 
 }
 
 export default function Lobby() {
@@ -14,6 +16,7 @@ export default function Lobby() {
   const location = useLocation();
   const navigate = useNavigate();
   const myName = location.state?.displayName || 'Unknown Agent'; 
+  const action = location.state?.action || 'join';
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [, setIsConnected] = useState(false);
@@ -21,47 +24,95 @@ export default function Lobby() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [chatInput, setChatInput] = useState('');
+  const [hasCopied, setHasCopied] = useState(false);
+  const [amIHost, setAmIHost] = useState(false);
+  const [teamSize, setTeamSize] = useState(10);
 
-  const isHost = players.length === 0;
+  const handleCopy = async () => {
+    if (!roomCode) return;
+    try {
+      await navigator.clipboard.writeText(roomCode);
+      setHasCopied(true);
+      setTimeout(() => setHasCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy", err);
+    }
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'cipher.gg',
+          text: `Join my syndicate! Room Code: ${roomCode}`,
+          url: window.location.href,
+        });
+      } catch (err) {
+        console.error("Share failed", err);
+      }
+    } else {
+      handleCopy();
+    }
+  };
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5001');
+    const newSocket = io('http://localhost:5005');
     setSocket(newSocket);
-
-    newSocket.on('room_roster', (roster) => {
-      const others = roster.filter((p: Player) => p.name !== myName);
-      setPlayers(others);
-    });
-
-    newSocket.on('player_left', (data) => {
-      setPlayers((prev) => prev.filter(p => p.id !== data.id));
-      setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.name} connection severed.`]);
-    });
 
     newSocket.on('connect', () => {
       setIsConnected(true);
-      newSocket.emit('join_room', { roomCode, displayName: myName });
+      newSocket.emit('join_room', { roomCode, displayName: myName, action});
+    });
+
+    newSocket.on('room_error', (errorMessage) => {
+      alert(errorMessage);
+      navigate('/');
+    });
+
+    newSocket.on('settings_update', (settings) => {
+      setTeamSize(settings.teamSize);
+    });
+
+    newSocket.on('roster_update', (updatedPlayers: Player[]) => {
+      const me = updatedPlayers.find((p) => p.name === myName);
+      if (me) {
+        setAmIHost(me.isHost);
+        setIsReady(me.isReady);
+      }
+      const others = updatedPlayers.filter((p) => p.name !== myName);
+      setPlayers(others);
     });
 
     newSocket.on('player_joined', (data) => {
       if (data.user !== myName) {
-        setPlayers((prev) => {
-           if(prev.some(p => p.id === data.id)) return prev;
-           return [...prev, { id: data.id, name: data.user }];
-        });
-        setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.user} has breached the firewall.`]);
+        setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.user} has joined.`]);
       }
+    });
+
+    newSocket.on('player_left', (data) => {
+      setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.name} has disconnected.`]);
+    });
+
+    newSocket.on('player_ready_log', (data) => {
+      const statusText = data.isReady ? 'is READY.' : 'has returned to standby.';
+      setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.name} ${statusText}`]);
     });
 
     newSocket.on('disconnect', () => {
       setIsConnected(false);
-      setSystemLogs((prev) => [...prev, `[CRITICAL]: Uplink lost. Re-establishing...`]);
+      setSystemLogs((prev) => [...prev, `[CRITICAL]: Connection lost. Re-establishing...`]);
     });
 
     return () => {
       newSocket.disconnect();
     };
   }, [roomCode, myName]); 
+
+  useEffect(() => {
+    if (socket) {
+      socket.emit('status_update', { roomCode, isReady });
+    }
+  }, [isReady, socket, roomCode]); 
 
   const itemVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -75,6 +126,13 @@ export default function Lobby() {
     navigate('/'); 
   };
 
+  const handleTeamSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newSize = Number(e.target.value);
+    if (socket && amIHost) {
+      socket.emit('change_settings', { roomCode, teamSize: newSize });
+    }
+  };
+
   return (
     <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex flex-col p-4 md:p-8">
       
@@ -84,15 +142,18 @@ export default function Lobby() {
 
       {/* --- Navigation Bar --- */}
       <header className="relative z-10 w-full max-w-[1200px] mx-auto flex items-center justify-between mb-8 pb-4 border-b border-white/5">
-        <div className="flex items-center gap-3">
-          <Shield className="w-6 h-6 text-cyan-400" />
-          <h1 className="text-xl font-bold tracking-tight">cipher<span className="text-cyan-400">.gg</span></h1>
-        </div>
+        <button 
+            onClick={handleLeaveLobby} 
+            className="flex items-center gap-3 hover:opacity-75 transition-opacity cursor-pointer focus:outline-none"
+        >
+            <Shield className="w-6 h-6 text-cyan-400" />
+            <h1 className="text-xl font-bold tracking-tight">cipher<span className="text-cyan-400">.gg</span></h1>
+        </button>
         
         <h2 className="text-lg font-bold tracking-widest uppercase text-slate-300 absolute left-1/2 -translate-x-1/2 hidden md:block">
-          Game Lobby
+            Game Lobby
         </h2>
-
+        
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-3 bg-[#11151C] py-2 px-4 rounded-full border border-white/10">
             <UserCircle className="w-5 h-5 text-purple-400" />
@@ -125,12 +186,24 @@ export default function Lobby() {
             <div className="flex items-center justify-between mb-6">
               <span className="text-4xl font-black tracking-widest">{roomCode}</span>
               <div className="flex gap-2">
-                <button className="bg-white/5 hover:bg-white/10 p-2 rounded-lg border border-white/10 transition-colors">
-                  <Copy className="w-4 h-4 text-cyan-400" />
-                </button>
-                <button className="bg-white/5 hover:bg-white/10 p-2 rounded-lg border border-white/10 transition-colors">
-                  <Share className="w-4 h-4 text-cyan-400" />
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={handleCopy} 
+                    className="bg-white/5 hover:bg-white/10 p-2 rounded-lg border border-white/10 transition-colors"
+                  >
+                    {hasCopied ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-cyan-400" />
+                    )}
+                  </button>
+                  <button 
+                    onClick={handleShare} 
+                    className="bg-white/5 hover:bg-white/10 p-2 rounded-lg border border-white/10 transition-colors"
+                  >
+                    <Share className="w-4 h-4 text-cyan-400" />
+                  </button>
+                </div>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -149,10 +222,23 @@ export default function Lobby() {
           <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex justify-between items-center">
               <span>People in the Lobby</span>
-              <span className="text-cyan-400">{players.length + 1}/10</span>
+              {amIHost ? (
+                <select 
+                  value={teamSize}
+                  onChange={handleTeamSizeChange}
+                  className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-cyan-400 text-[10px] font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
+                >
+                  {[5, 6, 7, 8, 9, 10].map(size => (
+                    <option key={size} value={size}>Max {size} Agents</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-cyan-400">{players.length + 1} / {teamSize}</span>
+              )}
             </h3>
 
             <ul className="space-y-3 overflow-y-auto flex-grow custom-scrollbar">
+
               {/* YOU */}
               <li className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${isReady ? 'bg-cyan-900/20 border-cyan-500/30' : 'bg-white/5 border-white/5'}`}>
                 <div className="flex items-center gap-3">
@@ -160,7 +246,7 @@ export default function Lobby() {
                     <UserCircle className="w-5 h-5 text-white" />
                   </div>
                   <span className="font-bold text-sm text-white">{myName}</span>
-                  {isHost && <span className="text-[9px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-widest border border-amber-500/20">Host</span>}
+                  {amIHost && <span className="text-[9px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-widest border border-amber-500/20">Host</span>}
                 </div>
                 <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${isReady ? 'text-cyan-400 border border-cyan-400/30' : 'text-slate-500 border border-slate-700'}`}>
                   {isReady ? 'Ready' : 'Not Ready'}
@@ -171,16 +257,21 @@ export default function Lobby() {
               <AnimatePresence>
                 {players.map((p) => (
                   <motion.li key={p.id} variants={itemVariants} initial="hidden" animate="show" exit="hidden" 
-                    className="bg-white/5 border border-white/5 p-3 rounded-xl flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-white/10">
-                        <UserCircle className="w-5 h-5 text-slate-400" />
+                    className={`bg-white/5 border border-white/5 p-3 rounded-xl flex items-center justify-between transition-colors ${p.isReady ? 'bg-cyan-900/20 border-cyan-500/30' : ''}`}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center border border-white/10">
+                          <UserCircle className="w-5 h-5 text-slate-400" />
+                        </div>
+                        <span className="font-bold text-sm text-slate-300">{p.name}</span>
+        
+                        {/* Adds Host Tag if they are the host */}
+                        {p.isHost && <span className="text-[9px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-widest border border-amber-500/20">Host</span>}
                       </div>
-                      <span className="font-bold text-sm text-slate-300">{p.name}</span>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded text-cyan-400 border border-cyan-400/30">
-                      Ready
-                    </span>
+      
+                      {/* Changes styling based on if they are actually ready */}
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${p.isReady ? 'text-cyan-400 border border-cyan-400/30' : 'text-slate-500 border border-slate-700'}`}>
+                        {p.isReady ? 'Ready' : 'Not Ready'}
+                      </span>
                   </motion.li>
                 ))}
               </AnimatePresence>
@@ -192,64 +283,61 @@ export default function Lobby() {
         {/* === Logs & Action === */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           
-          {/* Main Log & Chat Window */}
-          <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col relative overflow-hidden">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-4">
-              Session Log
-            </h3>
+        {/* Main Log & Chat Window */}
+        <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col relative overflow-hidden">
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-4">
+            Session Log
+          </h3>
             
-            {/* System Logs */}
-            <div className="flex-grow overflow-y-auto space-y-2 mb-4 custom-scrollbar text-sm font-mono text-slate-300">
-              <p className="opacity-50">[{new Date().toLocaleTimeString('en-US', { hour12: false })}] Cipher Firewall established.</p>
-              {systemLogs.map((log, i) => (
-                <motion.p initial={{opacity: 0, x: -5}} animate={{opacity: 1, x: 0}} key={i}>
-                  {log}
-                </motion.p>
-              ))}
-              {isReady && (
-                <motion.p initial={{opacity: 0}} animate={{opacity: 1}} className="text-cyan-400">
-                   [{new Date().toLocaleTimeString('en-US', { hour12: false })}] {myName} is READY.
-                </motion.p>
-              )}
-            </div>
-
-            {/* Chat Input */}
-            <div className="relative mt-auto">
-              <input 
-                type="text" 
-                placeholder="Chat Input..."
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 pr-12 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
-              />
-              <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors">
-                <Send className="w-4 h-4" />
-              </button>
-            </div>
+          {/* System Logs */}
+          <div className="flex-grow overflow-y-auto space-y-2 mb-4 custom-scrollbar text-sm font-mono text-slate-300">
+            <p className="opacity-50">[{new Date().toLocaleTimeString('en-US', { hour12: false })}] Cipher Firewall established.</p>
+            {systemLogs.map((log, i) => (
+              <motion.p initial={{opacity: 0, x: -5}} animate={{opacity: 1, x: 0}} key={i}>
+                {log}
+              </motion.p>
+            ))}
           </div>
 
-          {/* Action Footer */}
-          <div className="flex justify-end items-center gap-6">
-             <div className="text-right">
-                <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Start Game ({players.length + 1}/10)</p>
-                <p className="text-slate-600 text-[10px]">(Only active for the host)</p>
-             </div>
+          {/* Chat Input */}
+          <div className="relative mt-auto">
+            <input 
+              type="text" 
+              placeholder="Chat Input..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 pr-12 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
+            />
+            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors">
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Action Footer */}
+        <div className="flex justify-end items-center gap-6">
+          <div className="text-right">
+            <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">
+              Start Game ({players.length + 1}/{teamSize})
+            </p>
+            <p className="text-slate-600 text-[10px]">(Only active for the host)</p>
+          </div>
              
              {/* READY BUTTON */}
-             <button 
-                onClick={() => setIsReady(!isReady)}
-                className={`px-12 py-4 rounded-full font-black uppercase tracking-widest shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 ${
-                  isReady 
-                  ? 'bg-slate-800 text-slate-400 border border-white/10' 
-                  : 'bg-gradient-to-r from-[#A855F7] to-[#06B6D4] text-white shadow-[0_0_40px_rgba(6,182,212,0.4)]'
-                }`}
-              >
-                <div className="flex flex-col items-center">
-                  <span className="text-lg">{isReady ? 'Unready' : 'Ready Up'}</span>
-                  {!isReady && <span className="text-[9px] font-bold opacity-70 mt-1">Change Team/Loadout</span>}
-                </div>
-             </button>
-          </div>
+          <button 
+            onClick={() => setIsReady(!isReady)}
+            className={`px-12 py-4 rounded-full font-black uppercase tracking-widest shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 ${
+              isReady 
+              ? 'bg-slate-800 text-slate-400 border border-white/10' 
+              : 'bg-gradient-to-r from-[#A855F7] to-[#06B6D4] text-white shadow-[0_0_40px_rgba(6,182,212,0.4)]'
+            }`}
+          >
+            <div className="flex flex-col items-center">
+              <span className="text-lg">{isReady ? 'Unready' : 'Ready Up'}</span>
+              {!isReady && <span className="text-[9px] font-bold opacity-70 mt-1">Change Team/Loadout</span>}
+            </div>
+          </button>
+        </div>
 
         </div>
       </motion.div>

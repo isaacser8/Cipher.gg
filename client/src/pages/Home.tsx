@@ -30,17 +30,21 @@ export default function Home() {
   };
 
   const handleAction = (e: React.SyntheticEvent) => {
-    e.preventDefault();
-    if (!displayName) return;
+  e.preventDefault();
+  if (!displayName) return;
 
-    if (mode === 'host') {
-      const newRoomCode = generateSecureCode();
-      navigate(`/lobby/${newRoomCode}`, { state: { displayName, isHost: true } });
-    } else {
-      if (!roomCode) return;
-      navigate(`/lobby/${roomCode}`, { state: { displayName, isHost: false } });
-    }
-  };
+  if (mode === 'host') {
+    const newRoomCode = generateSecureCode();
+    navigate(`/lobby/${newRoomCode}`, { 
+      state: { displayName, action: 'host' } 
+    });
+  } else {
+    if (!roomCode) return;
+    navigate(`/lobby/${roomCode}`, { 
+      state: { displayName, action: 'join' } 
+    });
+  }
+};
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#05070A] font-sans text-white relative overflow-hidden">
@@ -52,7 +56,9 @@ export default function Home() {
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-[550px] px-6">
         
         <div className="text-center mb-10">
-          <h1 className="text-6xl font-bold tracking-tighter">cipher<span className="text-cyan-400">.gg</span></h1>
+          <h1 style={{ fontFamily: 'Orbitron, sans-serif' }} className="uppercase text-6xl font-bold tracking-widest">
+            cipher<span className="text-cyan-400">.gg</span>
+          </h1>
         </div>
 
         <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 shadow-2xl relative">
@@ -138,7 +144,12 @@ export default function Home() {
               </motion.div>
             )}
 
-            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} className={`w-full mt-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl transition-all ${mode === 'host' ? 'bg-gradient-to-r from-emerald-600 to-cyan-500' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}>
+            <motion.button 
+              style={{ fontFamily: 'Orbitron, sans-serif' }}
+              whileHover={{ scale: 1.02 }} 
+              whileTap={{ scale: 0.98 }} 
+              className={`tracking-widest w-full mt-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl transition-all ${mode === 'host' ? 'bg-gradient-to-r from-emerald-600 to-cyan-500' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}
+              >
               {mode === 'host' ? 'START SESSION' : 'JOIN SESSION'} <ArrowRight className="w-5 h-5" />
             </motion.button>
           </form>
