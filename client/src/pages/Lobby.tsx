@@ -56,7 +56,10 @@ export default function Lobby() {
   };
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5005');
+    const SOCKET_URL = import.meta.env.MODE === 'development' 
+        ? 'http://localhost:5005' 
+        : 'https://ciphergg-production.up.railway.app';
+    const newSocket = io(SOCKET_URL);
     setSocket(newSocket);
 
     newSocket.on('connect', () => {
@@ -153,7 +156,7 @@ export default function Lobby() {
         <h2 className="text-lg font-bold tracking-widest uppercase text-slate-300 absolute left-1/2 -translate-x-1/2 hidden md:block">
             Game Lobby
         </h2>
-        
+
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex items-center gap-3 bg-[#11151C] py-2 px-4 rounded-full border border-white/10">
             <UserCircle className="w-5 h-5 text-purple-400" />
