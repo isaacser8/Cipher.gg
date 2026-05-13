@@ -15,7 +15,7 @@ const io = new Server(server, {
   cors: {
     origin: [
       "http://localhost:5173",               
-      "https://your-cipher-app.vercel.app"   
+      "https://cipher-gg.vercel.app"   
     ], 
     methods: ["GET", "POST"]
   }
