@@ -76,6 +76,10 @@ export default function Lobby() {
       setTeamSize(settings.teamSize);
     });
 
+    newSocket.on('receive_message', (data) => {
+      setSystemLogs((prev) => [...prev, data.text]);
+    });
+
     newSocket.on('roster_update', (updatedPlayers: Player[]) => {
       const me = updatedPlayers.find((p) => p.name === myName);
       if (me) {
@@ -117,6 +121,12 @@ export default function Lobby() {
     }
   }, [isReady, socket, roomCode]); 
 
+  useEffect(() => {
+    if (!location.state?.displayName) {
+      navigate('/', { state: { redirectedFrom: roomCode } });
+    }
+  }, [location.state, navigate, roomCode]);
+
   const itemVariants = {
     hidden: { opacity: 0, x: -20 },
     show: { opacity: 1, x: 0 }
@@ -133,6 +143,18 @@ export default function Lobby() {
     const newSize = Number(e.target.value);
     if (socket && amIHost) {
       socket.emit('change_settings', { roomCode, teamSize: newSize });
+    }
+  };
+
+  const handleSendMessage = (e?: React.SyntheticEvent) => {
+    if (e) e.preventDefault(); 
+    if (chatInput.trim() && socket) {
+        socket.emit('send_message', {
+        roomCode,
+        message: chatInput,
+        sender: myName
+      });
+      setChatInput(''); 
     }
   };
 
@@ -303,18 +325,21 @@ export default function Lobby() {
           </div>
 
           {/* Chat Input */}
-          <div className="relative mt-auto">
+          <form onSubmit={handleSendMessage} className="relative mt-auto">
             <input 
               type="text" 
-              placeholder="Chat Input..."
+              placeholder="Secure Comms Input..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 pr-12 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
             />
-            <button className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors">
+            <button 
+              type="submit"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors"
+            >
               <Send className="w-4 h-4" />
             </button>
-          </div>
+          </form>
         </div>
 
         {/* Action Footer */}

@@ -1,16 +1,18 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, User as UserIcon, Lock, Plus, LogIn } from 'lucide-react';
 import { useUser, SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
 
 export default function Home() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isSignedIn } = useUser();
   
   const [mode, setMode] = useState<'join' | 'host'>('join');
   const [displayName, setDisplayName] = useState('');
   const [roomCode, setRoomCode] = useState('');
+  const [ ] = useState(location.state?.redirectedFrom || '');
 
   useEffect(() => {
     if (isSignedIn && user) {
