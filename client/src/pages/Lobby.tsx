@@ -16,8 +16,9 @@ export default function Lobby() {
   const { roomCode } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useUser();
-  const myName = user?.fullName || user?.primaryEmailAddress?.emailAddress || location.state?.displayName || 'Unknown Agent';
+  const { user, isLoaded } = useUser();
+  const resolvedName = user?.fullName || user?.primaryEmailAddress?.emailAddress || location.state?.displayName;
+  const myName = resolvedName || 'Unknown Agent';
   const action = location.state?.action || 'join';
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -58,6 +59,8 @@ export default function Lobby() {
   };
 
   useEffect(() => {
+    if (!isLoaded || !resolvedName) return;
+
     const SOCKET_URL = import.meta.env.MODE === 'development' 
         ? 'http://localhost:5005' 
         : 'https://ciphergg-production.up.railway.app';
@@ -115,7 +118,8 @@ export default function Lobby() {
     return () => {
       newSocket.disconnect();
     };
-  }, [roomCode, myName]); 
+
+  }, [roomCode, myName, isLoaded, resolvedName]); 
 
   useEffect(() => {
     if (socket) {
@@ -124,10 +128,11 @@ export default function Lobby() {
   }, [isReady, socket, roomCode]); 
 
   useEffect(() => {
-    if (!myName) {
+    if (!isLoaded) return;
+    if (!resolvedName) {
       navigate('/', { state: { redirectedFrom: roomCode } });
     }
-  }, [myName, navigate, roomCode]);
+  }, [isLoaded, resolvedName, navigate, roomCode]);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -164,6 +169,26 @@ export default function Lobby() {
       setChatInput(''); 
     }
   };
+
+  if (!isLoaded) {
+    return (
+      <div className="min-h-screen w-full bg-[#0A0D14] flex items-center justify-center">
+        <p className="text-cyan-400 font-mono text-sm tracking-widest animate-pulse uppercase">
+          Establishing Secure Connection...
+        </p>
+      </div>
+    );
+  }
+
+  if (!resolvedName) {
+    return (
+      <div className="min-h-screen w-full bg-[#0A0D14] flex items-center justify-center">
+        <p className="text-purple-400 font-mono text-sm tracking-widest animate-pulse uppercase">
+          Rerouting to Firewall...
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex flex-col p-4 md:p-8">
