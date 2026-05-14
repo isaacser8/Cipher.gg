@@ -17,7 +17,7 @@ export default function Lobby() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user } = useUser();
-  const myName = user?.fullName || user?.primaryEmailAddress?.emailAddress || 'Unknown Agent';
+  const myName = user?.fullName || user?.primaryEmailAddress?.emailAddress || location.state?.displayName || 'Unknown Agent';
   const action = location.state?.action || 'join';
 
   const [players, setPlayers] = useState<Player[]>([]);

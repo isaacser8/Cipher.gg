@@ -66,7 +66,7 @@ export default function Home() {
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-[550px] px-6">
         
         <div className="text-center mb-10">
-          <h1 style={{ fontFamily: 'Orbitron, sans-serif' }} className="uppercase text-6xl font-bold tracking-widest">
+          <h1 style={{ fontFamily: 'Orbitron, sans-serif' }} className="uppercase text-4xl sm:text-6xl font-bold tracking-widest">
             cipher<span className="text-cyan-400">.gg</span>
           </h1>
         </div>
