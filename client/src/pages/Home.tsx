@@ -10,13 +10,21 @@ export default function Home() {
   const { user, isSignedIn } = useUser();
   
   const [mode, setMode] = useState<'join' | 'host'>('join');
+  const [roomCode, setRoomCode] = useState(
+    location.state?.redirectedFrom || sessionStorage.getItem('pendingRoomCode') || ''
+  );
   const [displayName, setDisplayName] = useState('');
-  const [roomCode, setRoomCode] = useState('');
-  const [ ] = useState(location.state?.redirectedFrom || '');
+
+  useEffect(() => {
+    if (location.state?.redirectedFrom) {
+      sessionStorage.setItem('pendingRoomCode', location.state.redirectedFrom);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (isSignedIn && user) {
-      setDisplayName(user.firstName || user.username || "Verified Agent");
+      const clerkName = user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress || '';
+      setDisplayName(clerkName);
     }
   }, [isSignedIn, user]);
 
@@ -32,21 +40,21 @@ export default function Home() {
   };
 
   const handleAction = (e: React.SyntheticEvent) => {
-  e.preventDefault();
-  if (!displayName) return;
+    e.preventDefault();
+    if (!displayName) return;
 
-  if (mode === 'host') {
-    const newRoomCode = generateSecureCode();
-    navigate(`/lobby/${newRoomCode}`, { 
-      state: { displayName, action: 'host' } 
-    });
-  } else {
-    if (!roomCode) return;
-    navigate(`/lobby/${roomCode}`, { 
-      state: { displayName, action: 'join' } 
-    });
-  }
-};
+    if (mode === 'host') {
+      const newRoomCode = generateSecureCode();
+      navigate(`/lobby/${newRoomCode}`, { 
+        state: { displayName, action: 'host' } 
+      });
+    } else {
+      if (!roomCode) return;
+      navigate(`/lobby/${roomCode}`, { 
+        state: { displayName, action: 'join' } 
+      });
+    }
+  };
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#05070A] font-sans text-white relative overflow-hidden">

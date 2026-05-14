@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
-import { useParams, useLocation, useNavigate} from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Copy, Share, Send, UserCircle, LogOut, Check } from 'lucide-react';
+import { useUser } from '@clerk/clerk-react';
 
 interface Player {
   id: string;
@@ -15,7 +16,8 @@ export default function Lobby() {
   const { roomCode } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const myName = location.state?.displayName || 'Unknown Agent'; 
+  const { user } = useUser();
+  const myName = user?.fullName || user?.primaryEmailAddress?.emailAddress || 'Unknown Agent';
   const action = location.state?.action || 'join';
 
   const [players, setPlayers] = useState<Player[]>([]);
@@ -44,7 +46,7 @@ export default function Lobby() {
       try {
         await navigator.share({
           title: 'cipher.gg',
-          text: `Join my syndicate! Room Code: ${roomCode}`,
+          text: `Join my room! Room Code: ${roomCode}`,
           url: window.location.href,
         });
       } catch (err) {
@@ -76,10 +78,6 @@ export default function Lobby() {
       setTeamSize(settings.teamSize);
     });
 
-    newSocket.on('receive_message', (data) => {
-      setSystemLogs((prev) => [...prev, data.text]);
-    });
-
     newSocket.on('roster_update', (updatedPlayers: Player[]) => {
       const me = updatedPlayers.find((p) => p.name === myName);
       if (me) {
@@ -105,6 +103,10 @@ export default function Lobby() {
       setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.name} ${statusText}`]);
     });
 
+    newSocket.on('receive_message', (data) => {
+      setSystemLogs((prev) => [...prev, data.text]);
+    });
+
     newSocket.on('disconnect', () => {
       setIsConnected(false);
       setSystemLogs((prev) => [...prev, `[CRITICAL]: Connection lost. Re-establishing...`]);
@@ -122,10 +124,15 @@ export default function Lobby() {
   }, [isReady, socket, roomCode]); 
 
   useEffect(() => {
-    if (!location.state?.displayName) {
+    if (!myName) {
       navigate('/', { state: { redirectedFrom: roomCode } });
     }
-  }, [location.state, navigate, roomCode]);
+  }, [myName, navigate, roomCode]);
+
+  const logsEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [systemLogs]);
 
   const itemVariants = {
     hidden: { opacity: 0, x: -20 },
@@ -146,13 +153,13 @@ export default function Lobby() {
     }
   };
 
-  const handleSendMessage = (e?: React.SyntheticEvent) => {
+  const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault(); 
     if (chatInput.trim() && socket) {
-        socket.emit('send_message', {
+      socket.emit('send_message', {
         roomCode,
         message: chatInput,
-        sender: myName
+        sender: myName 
       });
       setChatInput(''); 
     }
@@ -265,15 +272,16 @@ export default function Lobby() {
             <ul className="space-y-3 overflow-y-auto flex-grow custom-scrollbar">
 
               {/* YOU */}
-              <li className={`p-3 rounded-xl border flex items-center justify-between transition-colors ${isReady ? 'bg-cyan-900/20 border-cyan-500/30' : 'bg-white/5 border-white/5'}`}>
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center">
+              <li className={`p-3 rounded-xl border flex items-center justify-between gap-4 transition-colors ${isReady ? 'bg-cyan-900/20 border-cyan-500/30' : 'bg-white/5 border-white/5'}`}>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center">
                     <UserCircle className="w-5 h-5 text-white" />
                   </div>
-                  <span className="font-bold text-sm text-white">{myName}</span>
-                  {amIHost && <span className="text-[9px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-widest border border-amber-500/20">Host</span>}
+                  <span className="font-bold text-sm text-white truncate">{myName}</span>
+                  {amIHost && <span className="flex-shrink-0 text-[9px] font-black bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded uppercase tracking-widest border border-amber-500/20">Host</span>}
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${isReady ? 'text-cyan-400 border border-cyan-400/30' : 'text-slate-500 border border-slate-700'}`}>
+
+                <span className={`flex-shrink-0 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${isReady ? 'text-cyan-400 border border-cyan-400/30' : 'text-slate-500 border border-slate-700'}`}>
                   {isReady ? 'Ready' : 'Not Ready'}
                 </span>
               </li>
@@ -322,6 +330,7 @@ export default function Lobby() {
                 {log}
               </motion.p>
             ))}
+            <div ref={logsEndRef} />
           </div>
 
           {/* Chat Input */}

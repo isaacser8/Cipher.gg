@@ -34,7 +34,12 @@ mongoose.connect(process.env.MONGO_URI)
     console.error('❌ Error connecting to MongoDB:', error.message);
   });
 
-const rooms = {}; 
+const rooms = {
+  'DEMO99': [
+    { id: 'bot_1', name: 'Alpha', isHost: true, isReady: true, isConnected: true },
+    { id: 'bot_2', name: 'Beta', isHost: false, isReady: false, isConnected: true }
+  ]
+};
 const roomSettings = {};
 
 io.on('connection', (socket) => {
@@ -45,6 +50,11 @@ io.on('connection', (socket) => {
       return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
     }
 
+    const isNameTaken = rooms[roomCode]?.some(p => p.name === displayName && p.isConnected);
+    if (isNameTaken) {
+      return socket.emit('room_error', 'That name is already taken in this lobby!');
+    }
+
     socket.join(roomCode);
     if (!rooms[roomCode]) rooms[roomCode] = [];
     if (!roomSettings[roomCode]) {
@@ -52,7 +62,13 @@ io.on('connection', (socket) => {
     }
     socket.emit('settings_update', roomSettings[roomCode]);
 
-    const isFirstPlayer = rooms[roomCode].length === 0;
+    let isFirstPlayer = rooms[roomCode].length === 0;
+
+    if (roomCode === 'DEMO99' && rooms[roomCode].length === 2) {
+      isFirstPlayer = true; 
+      rooms['DEMO99'][0].isHost = false; 
+    }
+
     const existingPlayer = rooms[roomCode].find(p => p.name === displayName);
     
     if (!existingPlayer) {
@@ -99,6 +115,17 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('send_message', (data) => {
+    const timestamp = new Date().toLocaleTimeString('en-US', { 
+      hour12: false, 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+    io.to(data.roomCode).emit('receive_message', {
+      text: `[${timestamp}] ${data.sender}: ${data.message}`,
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(`🔌 Agent Disconnected: ${socket.id}`);
     const room = socket.roomCode;
@@ -135,36 +162,4 @@ io.on('connection', (socket) => {
 
 app.get('/', (req, res) => {
   res.send('Cipher.gg API is running!');
-});
-
-const Player = require('./models/Player');
-
-app.post('/api/join', async (req, res) => {
-  try {
-    const { displayName, roomCode } = req.body;
-
-    const existingPlayer = await Player.findOne({ 
-      displayName: displayName.trim(), 
-      roomCode: roomCode.toUpperCase() 
-    });
-
-    if (existingPlayer) {
-      return res.status(400).json({ error: "❌ Name is already taken in this room!" });
-    }
-
-    const newPlayer = new Player({
-      displayName: displayName,
-      roomCode: roomCode
-    });
-    await newPlayer.save();
-
-    res.status(201).json({ 
-      message: "✅ Successfully joined the lobby!", 
-      player: newPlayer 
-    });
-
-  } catch (error) {
-    console.error("❌ Error joining game:", error.message);
-    res.status(500).json({ error: error.message });
-  }
 });
