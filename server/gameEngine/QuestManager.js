@@ -123,7 +123,7 @@ class QuestManager {
         const approves = votes.filter(v => v === 'approve').length;
         const rejects = votes.filter(v => v === 'reject').length;
 
-        const approved = approvals > rejections; 
+        const approved = approves > rejects; 
 
         const result = {
             approved, 
@@ -207,7 +207,7 @@ class QuestManager {
         // Store in history 
         this.questHistory.push({
             questNumber: this.currentQuest,
-            team: [...this.proposeTeam], 
+            team: [...this.proposedTeam], 
             leader: this.players[this.currentLeaderIndex],
             succeeded: questSucceeded, 
             failCount, 
