@@ -267,7 +267,7 @@ class QuestManager {
         this.currentLeaderIndex = (this.currentLeaderIndex + 1) % this.players.length;
 
         return {
-            questNumber: this.currentQuest
+            questNumber: this.currentQuest,
             newLeader: this.players[this.currentLeaderIndex]
         };
 
