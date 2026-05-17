@@ -50,6 +50,15 @@ io.on('connection', (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
 
   socket.on('join_room', ({ roomCode, displayName, action }) => {
+
+    // Check if user is already connect from another socket 
+    const existingSocket = Array.from(io.sockets.sockets.values())
+      .find(s => s.displayName === displayName && s.roomCode === roomCode);
+
+    if (existingSocket) {
+      existingSocket.disconnect(true); 
+    }
+
     if (action !== 'host' && !rooms[roomCode]) {
       return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
     }
