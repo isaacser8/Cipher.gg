@@ -72,7 +72,7 @@ export default function Lobby() {
         roomCode: roomCode,
         name: myName,
         action: action
-      });
+      }, [isLoaded, resolvedName, roomCode, myName, action]);
     });
 
     return () => {

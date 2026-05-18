@@ -33,11 +33,11 @@ export default function Home() {
   };
 
   useEffect(() => {
-    if (isSignedIn && user && displayName === '') {
+    if (isSignedIn && user) {
       const clerkName = user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress || '';
-      setDisplayName(clerkName);
+      setDisplayName((prevName) => prevName === '' ? clerkName : prevName);
     }
-  }, [isSignedIn, user, displayName]); 
+  }, [isSignedIn, user]);
 
   const handleAction = (e: React.SyntheticEvent) => {
     e.preventDefault();
