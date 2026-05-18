@@ -1,3 +1,6 @@
+const RoleAssigner = require('./gameEngine/RoleAssigner'); 
+const QuestManager = require('./gameEngine/QuestManager');
+
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -41,11 +44,21 @@ const rooms = {
   ]
 };
 const roomSettings = {};
+const activeGames = {}; 
 
 io.on('connection', (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
 
   socket.on('join_room', ({ roomCode, displayName, action }) => {
+
+    //      Check if user is already connect from another socket 
+    const existingSocket = Array.from(io.sockets.sockets.values())
+      .find(s => s.displayName === displayName && s.roomCode === roomCode);
+
+    if (existingSocket) {
+      existingSocket.disconnect(true); 
+    }
+
     if (action !== 'host' && !rooms[roomCode]) {
       return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
     }
@@ -158,6 +171,37 @@ io.on('connection', (socket) => {
       }, 3000);
     }
   });
+
+  socket.on('start_game', ({ roomCode }) => {
+    const players = rooms[roomCode]; 
+
+    if (!players || players.length !== 5) {
+      return socket.emit('game_error', 'Needs exactly 5 players to start');
+    }
+
+    const roles = RoleAssigner.assignRoles(players);
+    const questManager = new QuestManager(players);
+
+    activeGames[roomCode] = {
+      roles: roles, 
+      questManager: questManager
+    };
+
+    console.log(`🎮 Game started in room ${roomCode}`);
+
+    players.forEach(player => {
+      const roleData = roles.get(player.id);
+      io.to(player.id).emit('role_assigned', {
+        role: roleData.role,
+        team: roleData.team, 
+        specialInfo: roleData.specialInfo
+      });
+    }); 
+
+    const questInfo = questManager.startQuest(); 
+    io.to(roomCode).emit('quest_started', questInfo);
+  }); 
+
 });
 
 app.get('/', (req, res) => {
