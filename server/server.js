@@ -51,7 +51,7 @@ io.on('connection', (socket) => {
 
   socket.on('join_room', ({ roomCode, displayName, action }) => {
 
-    // Check if user is already connect from another socket 
+    //      Check if user is already connect from another socket 
     const existingSocket = Array.from(io.sockets.sockets.values())
       .find(s => s.displayName === displayName && s.roomCode === roomCode);
 
