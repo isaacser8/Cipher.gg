@@ -72,13 +72,14 @@ export default function Lobby() {
         roomCode: roomCode,
         name: myName,
         action: action
-      }, [isLoaded, resolvedName, roomCode, myName, action]);
+      });
+
     });
 
     return () => {
       newSocket.disconnect();
     };
-  }, [isLoaded, resolvedName]);
+  }, [isLoaded, resolvedName, roomCode, myName, action]);
 
   useEffect(() => {
     if (!socket) return; 
