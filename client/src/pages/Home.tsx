@@ -21,13 +21,6 @@ export default function Home() {
     }
   }, [location.state]);
 
-  useEffect(() => {
-    if (isSignedIn && user) {
-      const clerkName = user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress || '';
-      setDisplayName(clerkName);
-    }
-  }, [isSignedIn, user]);
-
   const generateSecureCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let result = '';
@@ -38,6 +31,13 @@ export default function Home() {
     }
     return result;
   };
+
+  useEffect(() => {
+    if (isSignedIn && user && displayName === '') {
+      const clerkName = user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress || '';
+      setDisplayName(clerkName);
+    }
+  }, [isSignedIn, user, displayName]); 
 
   const handleAction = (e: React.SyntheticEvent) => {
     e.preventDefault();

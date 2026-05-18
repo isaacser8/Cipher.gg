@@ -61,27 +61,38 @@ export default function Lobby() {
   useEffect(() => {
     if (!isLoaded || !resolvedName) return;
 
-    const SOCKET_URL = import.meta.env.MODE === 'development' 
-        ? 'http://localhost:5005' 
-        : 'https://ciphergg-production.up.railway.app';
+    const SOCKET_URL = 'https://ciphergg-production.up.railway.app';
     const newSocket = io(SOCKET_URL);
-    setSocket(newSocket);
 
     newSocket.on('connect', () => {
+      setSocket(newSocket); 
       setIsConnected(true);
-      newSocket.emit('join_room', { roomCode, displayName: myName, action});
+
+      newSocket.emit('join_room', {
+        roomCode: roomCode,
+        name: myName,
+        action: action
+      });
     });
 
-    newSocket.on('room_error', (errorMessage) => {
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [isLoaded, resolvedName]);
+
+  useEffect(() => {
+    if (!socket) return; 
+
+    socket.on('room_error', (errorMessage) => {
       alert(errorMessage);
       navigate('/');
     });
 
-    newSocket.on('settings_update', (settings) => {
+    socket.on('settings_update', (settings) => {
       setTeamSize(settings.teamSize);
     });
 
-    newSocket.on('roster_update', (updatedPlayers: Player[]) => {
+    socket.on('roster_update', (updatedPlayers: Player[]) => {
       const me = updatedPlayers.find((p) => p.name === myName);
       if (me) {
         setAmIHost(me.isHost);
@@ -91,35 +102,41 @@ export default function Lobby() {
       setPlayers(others);
     });
 
-    newSocket.on('player_joined', (data) => {
+    socket.on('player_joined', (data) => {
       if (data.user !== myName) {
         setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.user} has joined.`]);
       }
     });
 
-    newSocket.on('player_left', (data) => {
+    socket.on('player_left', (data) => {
       setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.name} has disconnected.`]);
     });
 
-    newSocket.on('player_ready_log', (data) => {
+    socket.on('player_ready_log', (data) => {
       const statusText = data.isReady ? 'is READY.' : 'has returned to standby.';
       setSystemLogs((prev) => [...prev, `[SYS]: Agent ${data.name} ${statusText}`]);
     });
 
-    newSocket.on('receive_message', (data) => {
+    socket.on('receive_message', (data) => {
       setSystemLogs((prev) => [...prev, data.text]);
     });
 
-    newSocket.on('disconnect', () => {
+    socket.on('disconnect', () => {
       setIsConnected(false);
       setSystemLogs((prev) => [...prev, `[CRITICAL]: Connection lost. Re-establishing...`]);
     });
 
     return () => {
-      newSocket.disconnect();
+      socket.off('room_error');
+      socket.off('settings_update');
+      socket.off('roster_update');
+      socket.off('player_joined');
+      socket.off('player_left');
+      socket.off('player_ready_log');
+      socket.off('receive_message');
+      socket.off('disconnect');
     };
-
-  }, [roomCode, myName, isLoaded, resolvedName]); 
+  }, [socket, myName, navigate]);
 
   useEffect(() => {
     if (socket) {
@@ -380,10 +397,21 @@ export default function Lobby() {
         <div className="flex justify-end items-center gap-6">
           <div className="text-right">
             <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">
-              Start Game ({players.length + 1}/{teamSize})
+              Lobby Capacity ({players.length + 1}/{teamSize})
             </p>
-            <p className="text-slate-600 text-[10px]">(Only active for the host)</p>
           </div>
+             
+          {/* THE HOST 'START GAME' BUTTON */}
+          {amIHost && (
+            <button 
+              onClick={() => {
+                if (socket) socket.emit('start_game', { roomCode });
+              }}
+              className="px-8 py-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded-full font-black uppercase tracking-widest hover:bg-emerald-500/30 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+            >
+              Start Game
+            </button>
+          )}
              
              {/* READY BUTTON */}
           <button 
