@@ -1,4 +1,3 @@
-const { useInsertionEffect } = require('react');
 const RoleAssigner = require('../../gameEngine/RoleAssigner');
 
 describe('RoleAssigner', () => {
