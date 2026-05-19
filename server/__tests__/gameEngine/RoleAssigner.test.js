@@ -88,7 +88,7 @@ describe('RoleAssigner', () => {
         // Find evil players
         const evilPlayers = [];
         roleMap.forEach((asg, playerId) => {
-            if(asg.team === 'evil') evilPlayers.push({ id: playerId, assignment }); 
+            if(asg.team === 'evil') evilPlayers.push({ id: playerId, asg }); 
         }); 
 
         // Should have exactly 2 evil players
