@@ -21,7 +21,7 @@ describe('RoleAssigner', () => {
             .toThrow('This game requires EXACTLY 5 players');
 
         expect(() => RoleAssigner.assignRoles(tooMany))
-            .toThrow('This game requires EXACTLY 5players');
+            .toThrow('This game requires EXACTLY 5 players');
     });
 
     // Team distribution test
@@ -88,17 +88,21 @@ describe('RoleAssigner', () => {
         // Find evil players
         const evilPlayers = [];
         roleMap.forEach((asg, playerId) => {
-            if(asg.team === 'evil') evilPlayers.push(playerId);
+            if(asg.team === 'evil') evilPlayers.push({ id: playerId, assignment }); 
         }); 
 
-        // Each evil player should see the other evil players 
+        // Should have exactly 2 evil players
+        expect(evilPlayers.length).toBe(2);
+
+        // Each evil player should see the other 
         evilPlayers.forEach(evilPlayer => {
-            const { id, assignment } = evilPlayer; 
+            const { id, asg } = evilPlayer; 
             const otherEvilId = evilPlayers.find(p => p.id !== id).id;
 
-            expect(assignment.specialInfo.length).toBe(1); 
+            expect(otherEvilId).toBeDefined();
 
-            expect(assignment.specialInfo[0].id).toBe(otherEvilId);
+            expect(asg.specialInfo.length).toBe(1); 
+            expect(asg.specialInfo[0].id).toBe(otherEvilId);
         });
     }); 
 });
