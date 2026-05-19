@@ -127,6 +127,12 @@ export default function Lobby() {
       setSystemLogs((prev) => [...prev, `[CRITICAL]: Connection lost. Re-establishing...`]);
     });
 
+    socket.on('game_started', () => {
+      navigate(`/game/${roomCode}`, { 
+        state: { displayName: myName } 
+      });
+    });
+
     return () => {
       socket.off('room_error');
       socket.off('settings_update');
@@ -136,6 +142,7 @@ export default function Lobby() {
       socket.off('player_ready_log');
       socket.off('receive_message');
       socket.off('disconnect');
+      socket.off('game_started');
     };
   }, [socket, myName, navigate]);
 
