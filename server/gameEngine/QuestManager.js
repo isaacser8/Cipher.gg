@@ -120,10 +120,10 @@ class QuestManager {
         }
 
         const votes = Array.from(this.teamVotes.values());
-        const approves = votes.filter(v => v === 'approve').length;
-        const rejects = votes.filter(v => v === 'reject').length;
+        const approvals = votes.filter(v => v === 'approve').length;
+        const rejections = votes.filter(v => v === 'reject').length;
 
-        const approved = approves > rejects; 
+        const approved = approvals > rejections; 
 
         const result = {
             approved, 
