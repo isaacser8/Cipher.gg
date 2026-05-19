@@ -20,7 +20,7 @@ export default function Game() {
   const [myRole, setMyRole] = useState({
     role: 'Awaiting Intel...',
     team: 'unknown',
-    specialInfo: []
+    specialInfo: [] as any[]
   });
 
   useEffect(() => {
