@@ -144,7 +144,7 @@ export default function Lobby() {
       socket.off('disconnect');
       socket.off('game_started');
     };
-  }, [socket, myName, navigate]);
+  }, [socket, myName, navigate, roomCode]);
 
   useEffect(() => {
     if (socket) {

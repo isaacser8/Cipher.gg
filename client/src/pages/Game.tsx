@@ -4,6 +4,18 @@ import { Shield, Crown, AlertTriangle, Check, X, Eye } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
 
+interface Player {
+  id: string;
+  name: string;
+  isLeader?: boolean;
+  isOnTeam?: boolean;
+}
+
+interface Intel {
+  id: string;
+  name: string;
+}
+
 export default function Game() {
   const { roomCode } = useParams();
   const location = useLocation();
@@ -11,7 +23,7 @@ export default function Game() {
   const myName = location.state?.displayName || 'Unknown Agent';
   
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [players, setPlayers] = useState<any[]>([]);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [currentQuest, setCurrentQuest] = useState(1);
   const [votesRejected, setVotesRejected] = useState(0);
   const [phase, setPhase] = useState('LOADING_DIRECTIVES');
@@ -20,7 +32,7 @@ export default function Game() {
   const [myRole, setMyRole] = useState({
     role: 'Awaiting Intel...',
     team: 'unknown',
-    specialInfo: [] as any[]
+    specialInfo: [] as Intel[] 
   });
 
   useEffect(() => {
@@ -41,10 +53,12 @@ export default function Game() {
       setCurrentQuest(gameState.currentQuest);
       setVotesRejected(gameState.votesRejected);
       
-      if (gameState.phase !== phase) {
-        setHasVoted(false);
-      }
-      setPhase(gameState.phase);
+      setPhase((prevPhase) => {
+        if (gameState.phase !== prevPhase) {
+          setHasVoted(false);
+        }
+        return gameState.phase;
+      });
       
       if (gameState.winner) {
         setWinner(gameState.winner);
@@ -118,7 +132,7 @@ export default function Game() {
           <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow">
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-4">Agent Roster</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {players.map((p: any) => (
+                {players.map((p: Player) => (
                     <div key={p.id} className={`p-4 rounded-xl border flex items-center justify-between transition-all
                         ${p.isOnTeam ? 'bg-indigo-500/10 border-indigo-500/30' : 'bg-white/5 border-white/5'}`}>
                         <div className="flex items-center gap-3">
