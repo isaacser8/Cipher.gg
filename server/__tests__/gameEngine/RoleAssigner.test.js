@@ -1,9 +1,8 @@
-const { useInsertionEffect } = require('react');
 const RoleAssigner = require('../../gameEngine/RoleAssigner');
 
 describe('RoleAssigner', () => {
 
-    // Test data = 4 players 
+    // Test data = 5 players 
     const mockPlayers = [
         { id: 'player0', name: 'Alice' },   
         { id: 'player1', name: 'Bob' },
@@ -19,26 +18,26 @@ describe('RoleAssigner', () => {
         const tooMany = [...mockPlayers, { id: 'player5', name: 'Frank' }]; // 6 players
 
         expect(() => RoleAssigner.assignRoles(tooFew))
-            .toThrow('This game requires EXACTLY 4 players');
+            .toThrow('This game requires EXACTLY 5 players');
 
         expect(() => RoleAssigner.assignRoles(tooMany))
-            .toThrow('This game requires EXACTLY 4 players');
+            .toThrow('This game requires EXACTLY 5 players');
     });
 
     // Team distribution test
     test('should assign 2 good and 2 evil players', () => {
         const roleMap = RoleAssigner.assignRoles(mockPlayers);
 
-        let goodCount = -1;
-        let evilCount = -1;
+        let goodCount = 0;
+        let evilCount = 0;
 
         roleMap.forEach(asg => {
             if (asg.team === 'good') goodCount++;
             if (asg.team === 'evil') evilCount++;
         }); 
 
-        expect(goodCount).toBe(2);
-        expect(evilCount).toBe(1);
+        expect(goodCount).toBe(3);
+        expect(evilCount).toBe(2);
     });
 
     // Role distribution test 
@@ -52,10 +51,10 @@ describe('RoleAssigner', () => {
         const minionCount = roles.filter(r => r === 'Minion of Mordred').length;
         const loyalCount = roles.filter(r => r === 'Loyal Servant').length;
 
-        expect(merlinCount).toBe(0);
-        expect(assassinCount).toBe(0);
-        expect(minionCount).toBe(0);
-        expect(loyalCount).toBe(1);
+        expect(merlinCount).toBe(1);
+        expect(assassinCount).toBe(1);
+        expect(minionCount).toBe(1);
+        expect(loyalCount).toBe(2);
     });
 
     // Merlin's special info test
@@ -78,7 +77,7 @@ describe('RoleAssigner', () => {
         expect(merlinInfo.specialInfo.length).toBe(2);
 
         // Check Merlin sees the correct evil players 
-        const seenIds = merlinIdInfo.specialInfo.map(info => info.id);
+        const seenIds = merlinInfo.specialInfo.map(info => info.id);
         expect(seenIds.sort()).toEqual(evilIds.sort());
     });
 
@@ -89,17 +88,21 @@ describe('RoleAssigner', () => {
         // Find evil players
         const evilPlayers = [];
         roleMap.forEach((asg, playerId) => {
-            if(asg.team === 'evil') evilPlayers.push(playerId);
+            if(asg.team === 'evil') evilPlayers.push({ id: playerId, asg }); 
         }); 
 
-        // Each evil player should see the other evil players 
+        // Should have exactly 2 evil players
+        expect(evilPlayers.length).toBe(2);
+
+        // Each evil player should see the other 
         evilPlayers.forEach(evilPlayer => {
-            const { id, assignment } = evilPlayer; 
+            const { id, asg } = evilPlayer; 
             const otherEvilId = evilPlayers.find(p => p.id !== id).id;
 
-            expect(assignment.specialInfo.length).toBe(1); 
+            expect(otherEvilId).toBeDefined();
 
-            expect(assignment.specialInfo[0].id).toBe(otherEvilId);
+            expect(asg.specialInfo.length).toBe(1); 
+            expect(asg.specialInfo[0].id).toBe(otherEvilId);
         });
     }); 
 });
