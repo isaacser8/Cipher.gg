@@ -41,7 +41,7 @@ describe('RoleAssigner', () => {
     });
 
     // Role distribution test 
-    test('should assign 0 Merlin, 1 Assassin, 1 Minion, and 2 Loyal Servants', () => {  
+    test('should assign 1 Merlin, 1 Assassin, 1 Minion, and 2 Loyal Servants', () => {  
         const roleMap = RoleAssigner.assignRoles(mockPlayers);
 
         const roles = Array.from(roleMap.values()).map(asg => asg.role);
