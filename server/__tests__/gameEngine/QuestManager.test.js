@@ -138,9 +138,11 @@ describe('QuestManager', () => {
 
         const result = questManager.resolveQuestVotes();
 
-        expect(result.gameOver).toBe(true);
-        expect(result.winner).toBe('good');
-        expect(result.reason).toBe('Good team won 3 quests');
+        expect(result.triggerAssassination).toBe(true); 
+        expect(result.reason).toBe('Good team won 3 quests - Assassination phase begins'); 
+        expect(result.gameOver).toBeUndefined(); 
+        expect(result.winner).toBeUndefined(); 
+
     });
 
     // Evil win condition test 
