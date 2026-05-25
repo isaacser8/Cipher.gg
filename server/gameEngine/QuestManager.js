@@ -226,9 +226,8 @@ class QuestManager {
         if (this.questsWon.good >= 3) {
             return {
                 ...result,
-                gameOver: true, 
-                winner: 'good', 
-                reason: 'Good team won 3 quests'
+                triggerAssassination: true,
+                reason: 'Good team won 3 quests - Assassination phase begins'
             };  
         }
 
