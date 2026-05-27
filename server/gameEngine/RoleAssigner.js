@@ -59,8 +59,8 @@ class RoleAssigner {
                     const otherRole = roleAssignments.get(otherPlayer.id);
                     if (otherRole.team === 'evil') {
                         specialInfo.push({
-                            id: otherPlayer.id, 
-                            name: otherRole.name
+                            id: otherPlayer.name, 
+                            name: 'Evil'
                         });
                     }
                 }); 
@@ -72,8 +72,8 @@ class RoleAssigner {
                     const otherRole = roleAssignments.get(otherPlayer.id);
                     if (otherRole.team === 'evil' && otherPlayer.id !== player.id) {
                         specialInfo.push({
-                            id: otherPlayer.id, 
-                            name: otherRole.name
+                            id: otherPlayer.name, 
+                            name: 'Evil'
                         });
                     }
                 }); 

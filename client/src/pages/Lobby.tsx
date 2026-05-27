@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
+import { useSocket } from '../context/SocketContext';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Copy, Share, Send, UserCircle, LogOut, Check } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
@@ -17,72 +17,29 @@ export default function Lobby() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isLoaded } = useUser();
+  const { socket } = useSocket(); 
+  
   const resolvedName = user?.fullName || user?.primaryEmailAddress?.emailAddress || location.state?.displayName;
   const myName = resolvedName || 'Unknown Agent';
   const action = location.state?.action || 'join';
 
   const [players, setPlayers] = useState<Player[]>([]);
-  const [, setIsConnected] = useState(false);
   const [systemLogs, setSystemLogs] = useState<string[]>([]);
-  const [socket, setSocket] = useState<Socket | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [hasCopied, setHasCopied] = useState(false);
   const [amIHost, setAmIHost] = useState(false);
   const [teamSize, setTeamSize] = useState(10);
-
-  const handleCopy = async () => {
-    if (!roomCode) return;
-    try {
-      await navigator.clipboard.writeText(roomCode);
-      setHasCopied(true);
-      setTimeout(() => setHasCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy", err);
-    }
-  };
-
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'cipher.gg',
-          text: `Join my room! Room Code: ${roomCode}`,
-          url: window.location.href,
-        });
-      } catch (err) {
-        console.error("Share failed", err);
-      }
-    } else {
-      handleCopy();
-    }
-  };
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!isLoaded || !resolvedName) return;
+    if (!socket || !isLoaded || !resolvedName) return;
 
-    const SOCKET_URL = 'https://ciphergg-production.up.railway.app';
-    const newSocket = io(SOCKET_URL);
-
-    newSocket.on('connect', () => {
-      setSocket(newSocket); 
-      setIsConnected(true);
-
-      newSocket.emit('join_room', {
-        roomCode: roomCode,
-        name: myName,
-        action: action
-      });
-
+    socket.emit('join_room', {
+      roomCode: roomCode,
+      displayName: myName,
+      action: action
     });
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [isLoaded, resolvedName, roomCode, myName, action]);
-
-  useEffect(() => {
-    if (!socket) return; 
 
     socket.on('room_error', (errorMessage) => {
       alert(errorMessage);
@@ -101,6 +58,10 @@ export default function Lobby() {
       }
       const others = updatedPlayers.filter((p) => p.name !== myName);
       setPlayers(others);
+    });
+
+    socket.on('chat_history', (pastLogs: string[]) => {
+      setSystemLogs([...pastLogs, `[SYS]: Agent ${myName} have breached the firewall.`]); 
     });
 
     socket.on('player_joined', (data) => {
@@ -123,7 +84,6 @@ export default function Lobby() {
     });
 
     socket.on('disconnect', () => {
-      setIsConnected(false);
       setSystemLogs((prev) => [...prev, `[CRITICAL]: Connection lost. Re-establishing...`]);
     });
 
@@ -137,6 +97,7 @@ export default function Lobby() {
       socket.off('room_error');
       socket.off('settings_update');
       socket.off('roster_update');
+      socket.off('chat_history')
       socket.off('player_joined');
       socket.off('player_left');
       socket.off('player_ready_log');
@@ -144,7 +105,7 @@ export default function Lobby() {
       socket.off('disconnect');
       socket.off('game_started');
     };
-  }, [socket, myName, navigate, roomCode]);
+  }, [socket, isLoaded, resolvedName, myName, navigate, roomCode, action]);
 
   useEffect(() => {
     if (socket) {
@@ -159,7 +120,6 @@ export default function Lobby() {
     }
   }, [isLoaded, resolvedName, navigate, roomCode]);
 
-  const logsEndRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [systemLogs]);
@@ -169,9 +129,36 @@ export default function Lobby() {
     show: { opacity: 1, x: 0 }
   };
 
+  const handleCopy = async () => {
+    if (roomCode) {
+      await navigator.clipboard.writeText(roomCode);
+      setHasCopied(true);
+      setTimeout(() => setHasCopied(false), 2000); 
+    }
+  };
+
+  const handleShare = async () => {
+    const shareData = {
+      title: 'Cipher.gg',
+      text: `Join my Cipher.gg lobby! Room Code: ${roomCode}`,
+      url: window.location.href, 
+    };
+
+    if (navigator.share && navigator.canShare(shareData)) {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        console.error('Share aborted:', err);
+      }
+    } else {
+      handleCopy(); 
+      alert(`Room code ${roomCode} copied to clipboard!`);
+    }
+  };
+
   const handleLeaveLobby = () => {
     if (socket) {
-      socket.disconnect(); 
+      socket.emit('leave_room', { roomCode, name: myName }); 
     }
     navigate('/'); 
   };
@@ -183,7 +170,7 @@ export default function Lobby() {
     }
   };
 
-  const handleSendMessage = (e?: React.FormEvent) => {
+  const handleSendMessage = (e?: React.SyntheticEvent) => {
     if (e) e.preventDefault(); 
     if (chatInput.trim() && socket) {
       socket.emit('send_message', {
@@ -214,6 +201,10 @@ export default function Lobby() {
       </div>
     );
   }
+
+  const isEveryoneReady = isReady && players.every(p => p.isReady);
+  const isLobbyFull = (players.length + 1) === teamSize;
+  const canStartGame = isEveryoneReady && isLobbyFull;
 
   return (
     <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex flex-col p-4 md:p-8">
@@ -293,17 +284,13 @@ export default function Lobby() {
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Status:</p>
                 <p className="text-sm font-bold text-cyan-400 uppercase">Preparing</p>
               </div>
-              <div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Type:</p>
-                <p className="text-sm font-bold text-slate-300 uppercase">Private Session</p>
-              </div>
             </div>
           </div>
 
           {/* People in the Lobby Box */}
           <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex justify-between items-center">
-              <span>People in the Lobby</span>
+              <span>Agents</span>
               {amIHost ? (
                 <select 
                   value={teamSize}
@@ -387,7 +374,7 @@ export default function Lobby() {
           <form onSubmit={handleSendMessage} className="relative mt-auto">
             <input 
               type="text" 
-              placeholder="Secure Comms Input..."
+              placeholder="Comms Input..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 pr-12 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-cyan-500 transition-colors"
@@ -415,9 +402,17 @@ export default function Lobby() {
               onClick={() => {
                 if (socket) socket.emit('start_game', { roomCode });
               }}
-              className="px-8 py-4 bg-emerald-500/20 text-emerald-400 border border-emerald-500/50 rounded-full font-black uppercase tracking-widest hover:bg-emerald-500/30 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)]"
+              disabled={!canStartGame}
+              className={`px-8 py-4 border rounded-full font-black uppercase tracking-widest transition-all shadow-lg
+                ${!canStartGame 
+                  ? 'bg-slate-800/50 text-slate-500 border-slate-700 cursor-not-allowed shadow-none' 
+                  : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50 hover:bg-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.2)]'
+                }`}
             >
-              Start Game
+              {!isLobbyFull 
+                ? 'Awaiting Agents...' 
+                : (!isEveryoneReady ? 'Awaiting Ready...' : 'Start Game')
+              }
             </button>
           )}
              

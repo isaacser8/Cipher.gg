@@ -58,31 +58,37 @@ describe('RoleAssigner', () => {
     });
 
     // Merlin's special info test
-    test('Merlin should see the evil players', () => {
+    test('Merlin should see the evil players by name and masked as "Evil"', () => {
         const roleMap = RoleAssigner.assignRoles(mockPlayers);
 
-        // Find Merlin and evil players 
+        // Find Merlin and evil players' NAMES
         let merlinId = null;
-        const evilIds = [];
+        const evilNames = []; 
 
         roleMap.forEach((asg, playerId) => {
             if(asg.role === 'Merlin') merlinId = playerId;
-            if(asg.team === 'evil') evilIds.push(playerId);
+            if(asg.team === 'evil') {
+                const playerObj = mockPlayers.find(p => p.id === playerId);
+                evilNames.push(playerObj.name);
+            }
         });
 
         // Get Merlin's special info 
         const merlinInfo = roleMap.get(merlinId); 
 
-        // Merlin should see exactly 2evil players 
+        // Merlin should see exactly 2 evil players 
         expect(merlinInfo.specialInfo.length).toBe(2);
 
-        // Check Merlin sees the correct evil players 
-        const seenIds = merlinInfo.specialInfo.map(info => info.id);
-        expect(seenIds.sort()).toEqual(evilIds.sort());
+        // Check Merlin sees the correct evil player NAMES
+        const seenNames = merlinInfo.specialInfo.map(info => info.id);
+        expect(seenNames.sort()).toEqual(evilNames.sort());
+        
+        // Check that the specific role is masked as "Evil"
+        expect(merlinInfo.specialInfo[0].name).toBe('Evil');
     });
 
     // Evil players' special info test 
-    test('Evil players should see each other', () => {
+    test('Evil players should see each other by name and masked as "Evil"', () => {
         const roleMap = RoleAssigner.assignRoles(mockPlayers);
 
         // Find evil players
@@ -98,13 +104,17 @@ describe('RoleAssigner', () => {
         evilPlayers.forEach(evilPlayer => {
             const { id, asg } = evilPlayer; 
             const otherEvilId = evilPlayers.find(p => p.id !== id).id;
+            
+            // Look up the display name of the other evil player
+            const otherEvilName = mockPlayers.find(p => p.id === otherEvilId).name;
 
             expect(otherEvilId).toBeDefined();
 
             expect(asg.specialInfo.length).toBe(1); 
-            expect(asg.specialInfo[0].id).toBe(otherEvilId);
+            expect(asg.specialInfo[0].id).toBe(otherEvilName); 
+            expect(asg.specialInfo[0].name).toBe('Evil');      
         });
-    }); 
+    });
 });
 
 

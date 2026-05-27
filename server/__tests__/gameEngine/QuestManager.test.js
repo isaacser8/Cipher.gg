@@ -124,11 +124,9 @@ describe('QuestManager', () => {
     });
 
     // Good win condition test 
-    test('should end game when good wins 3 quests', () => {
-        // Simulate 2 successful quests already 
+    test('should trigger assassination phase when good wins 3 quests', () => {
         questManager.questsWon.good = 2;
 
-        // Setup and execute quest 3 
         questManager.proposeTeam('p1', ['p1', 'p2']);
         mockPlayers.forEach(p => questManager.castTeamVote(p.id, 'approve'));
         questManager.resolveTeamVotes();
@@ -138,9 +136,8 @@ describe('QuestManager', () => {
 
         const result = questManager.resolveQuestVotes();
 
-        expect(result.gameOver).toBe(true);
-        expect(result.winner).toBe('good');
-        expect(result.reason).toBe('Good team won 3 quests');
+        expect(result.triggerAssassination).toBe(true);
+        expect(result.reason).toBe('Good team won 3 quests - Assassination phase begins');
     });
 
     // Evil win condition test 

@@ -45,15 +45,15 @@ const rooms = {
 };
 const roomSettings = {};
 const activeGames = {}; 
+const roomLogs = {}; 
 
 io.on('connection', (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
 
   socket.on('join_room', ({ roomCode, displayName, action }) => {
 
-    //      Check if user is already connect from another socket 
     const existingSocket = Array.from(io.sockets.sockets.values())
-      .find(s => s.displayName === displayName && s.roomCode === roomCode);
+      .find(s => s.displayName === displayName && s.roomCode === roomCode && s.id !== socket.id);
 
     if (existingSocket) {
       existingSocket.disconnect(true); 
@@ -63,22 +63,19 @@ io.on('connection', (socket) => {
       return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
     }
 
-    const isNameTaken = rooms[roomCode]?.some(p => p.name === displayName && p.isConnected);
-    if (isNameTaken) {
-      return socket.emit('room_error', 'That name is already taken in this lobby!');
-    }
-
     socket.join(roomCode);
     if (!rooms[roomCode]) rooms[roomCode] = [];
     if (!roomSettings[roomCode]) {
       roomSettings[roomCode] = { teamSize: 10 };
     }
+    if (!roomLogs[roomCode]) roomLogs[roomCode] = [];
     socket.emit('settings_update', roomSettings[roomCode]);
+    socket.emit('chat_history', roomLogs[roomCode]);
 
-    let isFirstPlayer = rooms[roomCode].length === 0;
+    const isFirstPlayer = rooms[roomCode].length === 0;
+    const shouldBeHost = action === 'host' || isFirstPlayer;
 
     if (roomCode === 'DEMO99' && rooms[roomCode].length === 2) {
-      isFirstPlayer = true; 
       rooms['DEMO99'][0].isHost = false; 
     }
 
@@ -88,20 +85,31 @@ io.on('connection', (socket) => {
       rooms[roomCode].push({
         id: socket.id,
         name: displayName,
-        isHost: isFirstPlayer,
+        isHost: (roomCode === 'DEMO99' && rooms[roomCode].length === 2) ? true : shouldBeHost,
         isReady: false,
         isConnected: true 
       });
+      socket.to(roomCode).emit('player_joined', { user: displayName });
     } else {
       existingPlayer.id = socket.id; 
       existingPlayer.isConnected = true; 
+      
+      if (shouldBeHost) {
+        existingPlayer.isHost = true;
+      }
     }
 
     socket.roomCode = roomCode; 
     socket.displayName = displayName;
 
+    if (rooms[roomCode] && rooms[roomCode].length > 0) {
+      const hasHost = rooms[roomCode].some(p => p.isHost);
+      if (!hasHost) {
+        rooms[roomCode][0].isHost = true; 
+      }
+    }
+
     io.to(roomCode).emit('roster_update', rooms[roomCode]);
-    socket.to(roomCode).emit('player_joined', { user: displayName });
   });
 
   socket.on('status_update', ({ roomCode, isReady }) => {
@@ -130,13 +138,16 @@ io.on('connection', (socket) => {
 
   socket.on('send_message', (data) => {
     const timestamp = new Date().toLocaleTimeString('en-US', { 
-      hour12: false, 
-      hour: '2-digit', 
-      minute: '2-digit' 
+      hour12: false, hour: '2-digit', minute: '2-digit' 
     });
-    io.to(data.roomCode).emit('receive_message', {
-      text: `[${timestamp}] ${data.sender}: ${data.message}`,
-    });
+    
+    const formattedMessage = `[${timestamp}] ${data.sender}: ${data.message}`;
+    
+    if (roomLogs[data.roomCode]) {
+      roomLogs[data.roomCode].push(formattedMessage);
+    }
+
+    io.to(data.roomCode).emit('receive_message', { text: formattedMessage });
   });
 
   socket.on('disconnect', () => {
@@ -154,7 +165,7 @@ io.on('connection', (socket) => {
           if (checkPlayer && checkPlayer.isConnected === false) {
             rooms[room] = rooms[room].filter(p => p.name !== name);
             
-            socket.to(room).emit('player_left', { id: socket.id, name: checkPlayer.name });
+            io.to(room).emit('player_left', { id: socket.id, name: checkPlayer.name });
 
             if (checkPlayer.isHost && rooms[room].length > 0) {
               rooms[room][0].isHost = true; 
@@ -169,6 +180,23 @@ io.on('connection', (socket) => {
           }
         }
       }, 3000);
+    }
+  });
+
+  socket.on('join_game_dashboard', ({ roomCode, name }) => {
+    const game = activeGames[roomCode];
+    if (game) {
+      
+      const roleData = game.roles.get(socket.id);
+      if (roleData) {
+        socket.emit('role_assigned', {
+          role: roleData.role,
+          team: roleData.team,
+          specialInfo: roleData.specialInfo
+        });
+      }
+
+      socket.emit('game_state_update', game.questManager.getGameState());
     }
   });
 
@@ -200,6 +228,7 @@ io.on('connection', (socket) => {
 
     const questInfo = questManager.startQuest(); 
     io.to(roomCode).emit('quest_started', questInfo);
+    io.to(roomCode).emit('game_started');
   }); 
 
 });

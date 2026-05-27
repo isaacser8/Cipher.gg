@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Crown, AlertTriangle, Check, X, Eye } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { io, Socket } from 'socket.io-client';
+import { useSocket } from '../context/SocketContext';
 
 interface Player {
   id: string;
@@ -21,34 +21,37 @@ export default function Game() {
   const location = useLocation();
   const navigate = useNavigate();
   const myName = location.state?.displayName || 'Unknown Agent';
-  
-  const [socket, setSocket] = useState<Socket | null>(null);
+  const { socket } = useSocket();
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentQuest, setCurrentQuest] = useState(1);
   const [votesRejected, setVotesRejected] = useState(0);
   const [phase, setPhase] = useState('LOADING_DIRECTIVES');
   const [hasVoted, setHasVoted] = useState(false);
+  const [sniperTarget, setSniperTarget] = useState<string | null>(null);
   const [winner, setWinner] = useState<'good' | 'evil' | null>(null); 
   const [myRole, setMyRole] = useState({
     role: 'Awaiting Intel...',
     team: 'unknown',
     specialInfo: [] as Intel[] 
   });
+  const [showRoleReveal, setShowRoleReveal] = useState(false);
 
   useEffect(() => {
-    const SOCKET_URL = 'https://ciphergg-production.up.railway.app';
-    const newSocket = io(SOCKET_URL);
+    if (!socket) return;
 
-    newSocket.on('connect', () => {
-      setSocket(newSocket);
-      newSocket.emit('join_game_dashboard', { roomCode, name: myName });
-    });
+    socket.emit('join_game_dashboard', { roomCode, name: myName });
 
-    newSocket.on('receive_role', (roleData) => {
+    socket.on('role_assigned', (roleData) => {
       setMyRole(roleData);
+      setShowRoleReveal(true);
     });
 
-    newSocket.on('game_state_update', (gameState) => {
+    return () => {
+      socket.off('role_assigned'); 
+      socket.off('game_state_update');
+    };
+
+    socket.on('game_state_update', (gameState) => {
       setPlayers(gameState.players);
       setCurrentQuest(gameState.currentQuest);
       setVotesRejected(gameState.votesRejected);
@@ -66,14 +69,21 @@ export default function Game() {
     });
 
     return () => {
-      newSocket.disconnect();
+      socket.off('receive_role');
+      socket.off('game_state_update');
     };
-  }, [roomCode, myName]);
+  }, [socket, roomCode, myName]);
 
   const handleVote = (voteType: 'approve' | 'reject') => {
     if (!socket || hasVoted) return;
     socket.emit('submit_vote', { roomCode, myName, vote: voteType });
     setHasVoted(true);
+  };
+
+   const handleAssassination = () => {
+    if (!socket || !sniperTarget) return;
+    
+    socket.emit('submit_assassination', { roomCode, targetId: sniperTarget });
   };
 
   return (
@@ -82,6 +92,53 @@ export default function Game() {
       {/* Background */}
       <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/5 rounded-full blur-[120px] pointer-events-none" />
+
+      {/* --- CLASSIFIED ROLE REVEAL MODAL (PASTE HERE!) --- */}
+      <AnimatePresence>
+        {showRoleReveal && myRole.role !== 'Awaiting Intel...' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0A0D14]/95 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className={`max-w-md w-full p-8 rounded-3xl border shadow-2xl text-center relative overflow-hidden
+                ${myRole.team === 'good'
+                  ? 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_80px_rgba(16,185,129,0.2)]'
+                  : 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_80px_rgba(244,63,94,0.2)]'
+                }`}
+            >
+              {/* Background glows */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 blur-[60px] opacity-20 pointer-events-none"
+                style={{ backgroundColor: myRole.team === 'good' ? '#10b981' : '#f43f5e' }} />
+
+              <div className="relative z-10">
+                <Shield className={`w-16 h-16 mx-auto mb-6 ${myRole.team === 'good' ? 'text-emerald-400' : 'text-rose-400'}`} />
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Classified Intel Received</h2>
+                <h1 className="text-5xl font-black tracking-widest uppercase text-white mb-2">{myRole.role}</h1>
+                <p className={`text-sm font-bold uppercase tracking-widest mb-8 ${myRole.team === 'good' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  Alignment: {myRole.team === 'good' ? 'Forces of Arthur' : 'Minions of Mordred'}
+                </p>
+
+                <button
+                  onClick={() => setShowRoleReveal(false)}
+                  className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all
+                    ${myRole.team === 'good'
+                      ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]'
+                      : 'bg-rose-500 text-rose-950 hover:bg-rose-400 shadow-[0_0_20px_rgba(244,63,94,0.4)]'
+                    }`}
+                >
+                  Acknowledge Directive
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* --- Header & Phase Banner --- */}
       <header className="relative z-10 w-full max-w-[1200px] mx-auto flex items-center justify-between mb-8 pb-4 border-b border-white/5">
@@ -203,7 +260,7 @@ export default function Game() {
             )}
           </div>
 
-          {/* Bottom: Action Interface OR Game Over Reveal */}
+           {/* Bottom: Dynamic Action Interface */}
           {phase === 'GAME_OVER' ? (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.9 }}
@@ -227,6 +284,55 @@ export default function Game() {
                     Return to Firewall
                  </button>
               </motion.div>
+          ) : phase === 'ASSASSINATION' ? (
+              <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-rose-500/30 shadow-[0_0_30px_rgba(244,63,94,0.15)] flex-grow flex flex-col gap-4">
+                  {myRole.role === 'Assassin' ? (
+                      <>
+                          <div className="text-center mb-2">
+                              <p className="text-lg font-black text-rose-400 uppercase tracking-widest">Execute Target</p>
+                              <p className="text-[10px] text-slate-400 uppercase tracking-widest mt-1">Identify and eliminate Merlin</p>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 mb-4">
+                              {/* Filter out the Assassin so they can't shoot themselves */}
+                              {players.filter(p => p.name !== myName).map(p => (
+                                  <button
+                                      key={p.id}
+                                      onClick={() => setSniperTarget(p.id)}
+                                      className={`p-3 rounded-xl border text-sm font-bold transition-all ${
+                                          sniperTarget === p.id 
+                                          ? 'bg-rose-500/20 border-rose-500 text-rose-300 shadow-[0_0_15px_rgba(244,63,94,0.3)]' 
+                                          : 'bg-black/40 border-white/10 text-slate-400 hover:border-rose-500/30 hover:text-white'
+                                      }`}
+                                  >
+                                      {p.name}
+                                  </button>
+                              ))}
+                          </div>
+
+                          <motion.button 
+                              onClick={handleAssassination}
+                              disabled={!sniperTarget}
+                              whileHover={{ scale: sniperTarget ? 1.02 : 1 }} 
+                              whileTap={{ scale: sniperTarget ? 0.98 : 1 }} 
+                              className={`w-full py-4 border rounded-xl font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all
+                                  ${!sniperTarget 
+                                      ? 'bg-slate-800/50 border-slate-700 text-slate-600 cursor-not-allowed' 
+                                      : 'bg-rose-600 hover:bg-rose-500 text-white border-rose-400 shadow-[0_0_20px_rgba(225,29,72,0.4)]'}`}
+                          >
+                              Confirm Kill
+                          </motion.button>
+                      </>
+                  ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-center py-8">
+                          <AlertTriangle className="w-12 h-12 text-rose-500 mb-4 animate-pulse" />
+                          <p className="text-lg font-black text-rose-400 uppercase tracking-widest">Critical Threat</p>
+                          <p className="text-xs text-slate-400 uppercase tracking-widest mt-2 max-w-[250px]">
+                              The Assassin has breached the firewall and is hunting Merlin. Await the outcome.
+                          </p>
+                      </div>
+                  )}
+              </div>
           ) : (
               <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col justify-center gap-4">
                  <div className="text-center mb-2">
