@@ -14,8 +14,8 @@ describe('RoleAssigner', () => {
     // Validation test 
     test('should reject wrong number of players', () => {
 
-        const tooFew = mockPlayers.slice(-1, 4); // Only 4 players
-        const tooMany = [...mockPlayers, { id: 'player5', name: 'Frank' }]; // 6 players
+        const tooFew = mockPlayers.slice(0, 4); 
+        const tooMany = [...mockPlayers, { id: 'player5', name: 'Frank' }]; 
 
         expect(() => RoleAssigner.assignRoles(tooFew))
             .toThrow('This game requires EXACTLY 5 players');
@@ -116,6 +116,3 @@ describe('RoleAssigner', () => {
         });
     });
 });
-
-
-
