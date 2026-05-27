@@ -47,6 +47,23 @@ const roomSettings = {};
 const activeGames = {}; 
 const roomLogs = {}; 
 
+function buildGameState(roomCode) {
+  const game = activeGames[roomCode];
+  if (!game) return null;
+  const roomPlayers = rooms[roomCode] || [];
+  const qs = game.questManager.getGameState();
+  return {
+    ...qs,
+    phase: game.phase || 'TEAM_SELECTION',
+    players: roomPlayers.map(p => ({
+      id: p.id,
+      name: p.name,
+      isLeader: qs.currentLeader?.id === p.id,
+      isOnTeam: qs.proposedTeam.includes(p.id)
+    }))
+  };
+}
+
 io.on('connection', (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
 
@@ -185,19 +202,21 @@ io.on('connection', (socket) => {
 
   socket.on('join_game_dashboard', ({ roomCode, name }) => {
     const game = activeGames[roomCode];
-    if (game) {
-      
-      const roleData = game.roles.get(socket.id);
-      if (roleData) {
-        socket.emit('role_assigned', {
-          role: roleData.role,
-          team: roleData.team,
-          specialInfo: roleData.specialInfo
-        });
-      }
+    if (!game) return;
 
-      socket.emit('game_state_update', game.questManager.getGameState());
+    const roomPlayers = rooms[roomCode] || [];
+    const player = roomPlayers.find(p => p.name === name);
+    const roleData = player ? game.roles.get(player.id) : null;
+
+    if (roleData) {
+      socket.emit('role_assigned', {
+        role: roleData.role,
+        team: roleData.team,
+        specialInfo: roleData.specialInfo
+      });
     }
+
+    socket.emit('game_state_update', buildGameState(roomCode));
   });
 
   socket.on('start_game', ({ roomCode }) => {
@@ -211,8 +230,9 @@ io.on('connection', (socket) => {
     const questManager = new QuestManager(players);
 
     activeGames[roomCode] = {
-      roles: roles, 
-      questManager: questManager
+      roles,
+      questManager,
+      phase: 'TEAM_SELECTION'
     };
 
     console.log(`🎮 Game started in room ${roomCode}`);
@@ -228,6 +248,7 @@ io.on('connection', (socket) => {
 
     const questInfo = questManager.startQuest(); 
     io.to(roomCode).emit('quest_started', questInfo);
+    io.to(roomCode).emit('game_state_update', buildGameState(roomCode));
     io.to(roomCode).emit('game_started');
   }); 
 

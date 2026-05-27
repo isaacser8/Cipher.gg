@@ -137,7 +137,7 @@ export default function Home() {
                   placeholder="ENTER YOUR NAME"
                   value={displayName}
                   onChange={(e) => {
-                    hasEditedName.current = true; // ✅ Mark as manually edited
+                    hasEditedName.current = true; 
                     setDisplayName(e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''));
                   }}
                   className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all tracking-widest text-white"

@@ -39,51 +39,46 @@ export default function Game() {
   useEffect(() => {
     if (!socket) return;
 
-    socket?.emit('join_game_dashboard', { roomCode, name: myName });
+    socket.emit('join_game_dashboard', { roomCode, name: myName });
 
     socket.on('role_assigned', (roleData) => {
       setMyRole(roleData);
       setShowRoleReveal(true);
     });
 
-    return () => {
-      socket.off('role_assigned'); 
-      socket.off('game_state_update');
-    };
-
     socket.on('game_state_update', (gameState) => {
       setPlayers(gameState.players);
       setCurrentQuest(gameState.currentQuest);
       setVotesRejected(gameState.votesRejected);
-      
+
       setPhase((prevPhase) => {
         if (gameState.phase !== prevPhase) {
           setHasVoted(false);
         }
         return gameState.phase;
       });
-      
+
       if (gameState.winner) {
         setWinner(gameState.winner);
       }
     });
 
     return () => {
-      socket?.off('receive_role');
-      socket?.off('game_state_update');
+      socket.off('role_assigned');
+      socket.off('game_state_update');
     };
   }, [socket, roomCode, myName]);
 
   const handleVote = (voteType: 'approve' | 'reject') => {
     if (!socket || hasVoted) return;
-    socket?.emit('submit_vote', { roomCode, myName, vote: voteType });
+    socket.emit('submit_vote', { roomCode, myName, vote: voteType });
     setHasVoted(true);
   };
 
    const handleAssassination = () => {
     if (!socket || !sniperTarget) return;
     
-    socket?.emit('submit_assassination', { roomCode, targetId: sniperTarget });
+    socket.emit('submit_assassination', { roomCode, targetId: sniperTarget });
   };
 
   return (
