@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useSocket } from '../context/SocketContext';
+import { useSocket } from '../context/useSocket';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Copy, Share, Send, UserCircle, LogOut, Check } from 'lucide-react';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Crown, AlertTriangle, Check, X, Eye } from 'lucide-react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useSocket } from '../context/SocketContext';
+import { useSocket } from '../context/useSocket';
 
 interface Player {
   id: string;
