@@ -39,7 +39,7 @@ export default function Game() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.emit('join_game_dashboard', { roomCode, name: myName });
+    socket?.emit('join_game_dashboard', { roomCode, name: myName });
 
     socket.on('role_assigned', (roleData) => {
       setMyRole(roleData);
@@ -69,8 +69,8 @@ export default function Game() {
     });
 
     return () => {
-      socket.off('receive_role');
-      socket.off('game_state_update');
+      socket?.off('receive_role');
+      socket?.off('game_state_update');
     };
   }, [socket, roomCode, myName]);
 

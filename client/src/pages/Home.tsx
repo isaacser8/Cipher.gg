@@ -35,6 +35,8 @@ export default function Home() {
   useEffect(() => {
     if (isSignedIn && user) {
       const clerkName = user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress || '';
+
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayName((prevName) => prevName === '' ? clerkName : prevName);
     }
   }, [isSignedIn, user]);
