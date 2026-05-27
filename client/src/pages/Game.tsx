@@ -76,14 +76,14 @@ export default function Game() {
 
   const handleVote = (voteType: 'approve' | 'reject') => {
     if (!socket || hasVoted) return;
-    socket.emit('submit_vote', { roomCode, myName, vote: voteType });
+    socket?.emit('submit_vote', { roomCode, myName, vote: voteType });
     setHasVoted(true);
   };
 
    const handleAssassination = () => {
     if (!socket || !sniperTarget) return;
     
-    socket.emit('submit_assassination', { roomCode, targetId: sniperTarget });
+    socket?.emit('submit_assassination', { roomCode, targetId: sniperTarget });
   };
 
   return (

@@ -7,9 +7,9 @@ interface SocketContextType {
   isConnected: boolean;
 }
 
-const SocketContext = createContext<SocketContextType>({ 
-  socket: null, 
-  isConnected: false 
+export const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
 });
 
 export const useSocket = () => useContext(SocketContext);
@@ -21,20 +21,22 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     if (!isLoaded) return;
-    const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'https://ciphergg-production.up.railway.app';
+
+    const SOCKET_URL =
+      import.meta.env.VITE_SOCKET_URL || 'https://ciphergg-production.up.railway.app';
     const socketInstance = io(SOCKET_URL);
 
     socketInstance.on('connect', () => {
       console.log('Global Socket Connected:', socketInstance.id);
+      setSocket(socketInstance);
       setIsConnected(true);
     });
 
     socketInstance.on('disconnect', () => {
       console.log('Global Socket Disconnected');
+      setSocket(null);
       setIsConnected(false);
     });
-
-    setSocket(socketInstance);
 
     return () => {
       socketInstance.disconnect();

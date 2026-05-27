@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, User as UserIcon, Lock, Plus, LogIn } from 'lucide-react';
@@ -8,12 +8,25 @@ export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isSignedIn } = useUser();
-  
+
   const [mode, setMode] = useState<'join' | 'host'>('join');
   const [roomCode, setRoomCode] = useState(
     location.state?.redirectedFrom || sessionStorage.getItem('pendingRoomCode') || ''
   );
-  const [displayName, setDisplayName] = useState('');
+
+  const hasEditedName = useRef(false);
+  const clerkName =
+    (isSignedIn && user
+      ? user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress
+      : '') ?? '';
+
+  const [displayName, setDisplayName] = useState(clerkName);
+
+  useEffect(() => {
+    if (!hasEditedName.current && clerkName) {
+      setDisplayName(clerkName);
+    }
+  }, [clerkName]);
 
   useEffect(() => {
     if (location.state?.redirectedFrom) {
@@ -32,41 +45,32 @@ export default function Home() {
     return result;
   };
 
-  useEffect(() => {
-    if (isSignedIn && user) {
-      const clerkName = user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress || '';
-
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setDisplayName((prevName) => prevName === '' ? clerkName : prevName);
-    }
-  }, [isSignedIn, user]);
-
   const handleAction = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!displayName) return;
 
     if (mode === 'host') {
       const newRoomCode = generateSecureCode();
-      navigate(`/lobby/${newRoomCode}`, { 
-        state: { displayName, action: 'host' } 
+      navigate(`/lobby/${newRoomCode}`, {
+        state: { displayName, action: 'host' },
       });
     } else {
       if (!roomCode) return;
-      navigate(`/lobby/${roomCode}`, { 
-        state: { displayName, action: 'join' } 
+      navigate(`/lobby/${roomCode}`, {
+        state: { displayName, action: 'join' },
       });
     }
   };
 
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#05070A] font-sans text-white relative overflow-hidden">
-      
+
       {/* Background Ambience */}
       <div className="absolute top-1/4 -left-20 w-96 h-96 bg-purple-600/10 blur-[120px] rounded-full pointer-events-none" />
       <motion.div animate={{ y: [0, -20, 0] }} transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }} className="absolute bottom-1/4 -right-10 w-64 h-64 bg-cyan-500/10 blur-[100px] rounded-full" />
 
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="relative z-10 w-full max-w-[550px] px-6">
-        
+
         <div className="text-center mb-10">
           <h1 style={{ fontFamily: 'Orbitron, sans-serif' }} className="uppercase text-4xl sm:text-6xl font-bold tracking-widest">
             cipher<span className="text-cyan-400">.gg</span>
@@ -74,7 +78,7 @@ export default function Home() {
         </div>
 
         <div className="bg-white/[0.03] backdrop-blur-2xl border border-white/10 rounded-[40px] p-10 shadow-2xl relative">
-          
+
           {/* --- CLERK AUTHENTICATION --- */}
           <SignedIn>
             <div className="mb-8 p-4 bg-cyan-500/10 border border-cyan-500/20 rounded-2xl flex items-center justify-between">
@@ -104,14 +108,14 @@ export default function Home() {
 
           {/* --- MODE TOGGLE TABS --- */}
           <div className="flex bg-black/40 rounded-2xl p-1 mb-8 border border-white/10">
-            <button 
+            <button
               type="button"
               onClick={() => setMode('join')}
               className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${mode === 'join' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
             >
               <LogIn className="w-4 h-4" /> Join Session
             </button>
-            <button 
+            <button
               type="button"
               onClick={() => setMode('host')}
               className={`flex-1 py-3 text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 ${mode === 'host' ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
@@ -122,17 +126,20 @@ export default function Home() {
 
           {/* --- CORE FORM --- */}
           <form onSubmit={handleAction} className="space-y-6 relative z-10">
-            
+
             {/* Name */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-400 ml-1">{isSignedIn ? 'Current Alias' : 'Display Name'}</label>
               <div className="relative group">
                 <UserIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   placeholder="ENTER YOUR NAME"
                   value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''))}
+                  onChange={(e) => {
+                    hasEditedName.current = true; // ✅ Mark as manually edited
+                    setDisplayName(e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''));
+                  }}
                   className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all tracking-widest text-white"
                 />
               </div>
@@ -144,8 +151,8 @@ export default function Home() {
                 <label className="text-sm font-medium text-slate-400 ml-1">Room Code</label>
                 <div className="relative group">
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500 group-focus-within:text-purple-400 transition-colors" />
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     placeholder="enter 6-digit code"
                     value={roomCode}
                     maxLength={6}
@@ -156,12 +163,12 @@ export default function Home() {
               </motion.div>
             )}
 
-            <motion.button 
+            <motion.button
               style={{ fontFamily: 'Orbitron, sans-serif' }}
-              whileHover={{ scale: 1.02 }} 
-              whileTap={{ scale: 0.98 }} 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               className={`tracking-widest w-full mt-4 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 shadow-xl transition-all ${mode === 'host' ? 'bg-gradient-to-r from-emerald-600 to-cyan-500' : 'bg-gradient-to-r from-purple-600 to-blue-600'}`}
-              >
+            >
               {mode === 'host' ? 'START SESSION' : 'JOIN SESSION'} <ArrowRight className="w-5 h-5" />
             </motion.button>
           </form>
