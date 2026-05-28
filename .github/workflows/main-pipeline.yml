@@ -1,0 +1,46 @@
+name: Cipher CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-test-lint:
+    name: Full Stack Check
+    runs-on: ubuntu-latest 
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js & Cache Dependencies
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm' 
+          cache-dependency-path: |
+            client/package-lock.json
+            server/package-lock.json
+
+      # --- FRONTEND ---
+      - name: Install & Check Frontend
+        working-directory: ./client 
+        run: |
+          npm install
+          npm run lint --if-present
+          npm run build --if-present
+
+      # --- BACKEND ---
+      - name: Install & Check Backend
+        working-directory: ./server   
+        run: |
+          npm install
+          npm run lint --if-present
+          npm test
+
+      - name: Generate Backend Coverage 
+        working-directory: ./server
+        run: npm run test:coverage
+        continue-on-error: true

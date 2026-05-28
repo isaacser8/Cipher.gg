@@ -115,4 +115,18 @@ describe('RoleAssigner', () => {
             expect(asg.specialInfo[0].name).toBe('Evil');      
         });
     });
+
+    afterAll((done) => {
+        // Close the socket connections
+      if (clientSocket) {
+        clientSocket.disconnect();
+      }
+        // Close the actual HTTP server
+      if (httpServer) {
+        httpServer.close(done);
+      } else {
+        done();
+      }
+    });
+    
 });

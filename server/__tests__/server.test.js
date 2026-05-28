@@ -60,4 +60,18 @@ describe('Cipher.gg Backend Socket Infrastructure', () => {
       }
     });
   });
+
+  afterAll((done) => {
+    // Close the socket connections
+    if (clientSocket) {
+      clientSocket.disconnect();
+    }
+    // Close the actual HTTP server
+    if (httpServer) {
+      httpServer.close(done);
+    } else {
+      done();
+    }
+  });
+  
 });

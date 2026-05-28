@@ -163,4 +163,17 @@ describe('QuestManager', () => {
         expect(result.reason).toBe('Evil team won 3 quests');
     });
 
+    afterAll((done) => {
+        // Close the socket connections
+      if (clientSocket) {
+        clientSocket.disconnect();
+      }
+        // Close the actual HTTP server
+      if (httpServer) {
+        httpServer.close(done);
+      } else {
+        done();
+      }
+    });
+
 });
