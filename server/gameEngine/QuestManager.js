@@ -281,7 +281,9 @@ class QuestManager {
             votesRejected: this.votesRejected,
             questsWon: { ...this.questsWon },
             proposedTeam: [...this.proposedTeam],
-            questHistory: [...this.questHistory]
+            questHistory: [...this.questHistory],
+            teamVotesCast: Array.from(this.teamVotes.keys()),
+            questVotesCast: Array.from(this.questVotes.keys())
         }; 
 
     }

@@ -81,40 +81,33 @@ class GameStateMachine {
    */
   proposeTeam(leaderId, proposedTeamIds) {
     this._assertState('TEAM_SELECTION');
-
     const questState = this.questManager.getGameState();
 
     if (questState.currentLeader?.id !== leaderId) {
       throw new Error('Only the current leader can propose a team.');
     }
 
-    this.questManager.proposeTeam(proposedTeamIds);
+    this.questManager.proposeTeam(leaderId, proposedTeamIds);
     this._transition('TEAM_VOTING');
 
     return { state: this.currentState, proposedTeam: proposedTeamIds };
   }
 
-  /**
-   * Record a single player's vote. Transitions once all votes are in.
-   * TEAM_VOTING → QUEST_EXECUTION  (majority approve)
-   * TEAM_VOTING → VOTE_FAILED      (majority reject)
-   *
-   * @param {string}  playerId
-   * @param {boolean} approve
-   * @returns {{ state, resolved, approveCount, rejectCount, approved? }}
-   */
-  castVote(playerId, approve) {
+  castVote(playerId, vote) {
     this._assertState('TEAM_VOTING');
+    
+    const voteStatus = this.questManager.castTeamVote(playerId, vote);
+    if (!voteStatus.allVoted) return { state: this.currentState, resolved: false };
 
-    const voteResult = this.questManager.castVote(playerId, approve);
-
-    if (!voteResult.resolved) {
-      // Still waiting for more votes.
-      return { state: this.currentState, resolved: false };
-    }
+    const voteResult = this.questManager.resolveTeamVotes();
 
     if (voteResult.approved) {
       this._transition('QUEST_EXECUTION');
+    } else if (voteResult.evilWins) {
+      this._transition('GAME_OVER');
+      this.winner = 'evil';
+      this.winReason = 'Five consecutive teams rejected.';
+      return this.getState();
     } else {
       this._transition('VOTE_FAILED');
     }
@@ -122,50 +115,23 @@ class GameStateMachine {
     return { state: this.currentState, resolved: true, ...voteResult };
   }
 
-  /**
-   * Called after the 3 sec VOTE_FAILED pause expires.
-   * VOTE_FAILED → TEAM_SELECTION (next leader)
-   */
-  advanceAfterFailedVote() {
-    this._assertState('VOTE_FAILED');
-    this.questManager.rotateLeader();
-    return this._beginTeamSelection();
-  }
-
-  /**
-   * Record a team member's pass/fail action. Transitions once all votes are in.
-   * QUEST_EXECUTION → QUEST_RESULT
-   *
-   * @param {string}  playerId
-   * @param {boolean} pass
-   */
-  submitQuestAction(playerId, pass) {
+  submitQuestAction(playerId, vote) {
     this._assertState('QUEST_EXECUTION');
 
-    const actionResult = this.questManager.submitQuestAction(playerId, pass);
+    const actionStatus = this.questManager.castQuestVote(playerId, vote);
+    if (!actionStatus.allVoted) return { state: this.currentState, resolved: false };
 
-    if (!actionResult.resolved) {
-      return { state: this.currentState, resolved: false };
-    }
-
+    const actionResult = this.questManager.resolveQuestVotes();
     this._transition('QUEST_RESULT');
     return { state: this.currentState, resolved: true, ...actionResult };
   }
 
-  /**
-   * Called after the 4 sec QUEST_RESULT reveal pause expires.
-   * Determines the next state based on overall quest scores.
-   *
-   * QUEST_RESULT → ASSASSINATION_PHASE  (good wins 3)
-   * QUEST_RESULT → GAME_OVER            (evil wins 3)
-   * QUEST_RESULT → TEAM_SELECTION       (neither, next quest)
-   */
   advanceAfterQuestResult() {
     this._assertState('QUEST_RESULT');
 
-    const { goodWins, evilWins } = this.questManager.getScore();
+    const { questsWon } = this.questManager.getGameState();
 
-    if (goodWins >= 3) {
+    if (questsWon.good >= 3) {
       this._transition('ASSASSINATION_PHASE');
       this.assassinationManager = new AssassinationManager(
         this.players,
@@ -178,13 +144,15 @@ class GameStateMachine {
       };
     }
 
-    if (evilWins >= 3) {
+    if (questsWon.evil >= 3) {
       this._transition('GAME_OVER');
-      this.winner = 'EVIL';
+      this.winner = 'evil';
       this.winReason = 'Evil sabotaged 3 quests.';
       return this.getState();
     }
 
+    this.questManager.nextQuest(); 
+    
     return this._beginTeamSelection();
   }
 
@@ -213,7 +181,7 @@ class GameStateMachine {
   getState() {
     const questState = this.questManager?.getGameState() ?? {};
     return {
-      currentState: this.currentState,
+      phase: this.currentState,
       winner: this.winner,
       winReason: this.winReason,
       ...questState,

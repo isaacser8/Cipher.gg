@@ -78,12 +78,24 @@ function buildClientGameState(roomCode) {
 
   return {
     ...fsm,
-    players: roomPlayers.map((p) => ({
-      id:       p.id,
-      name:     p.name,
-      isLeader: fsm.currentLeader?.id === p.id,
-      isOnTeam: (fsm.proposedTeam ?? []).includes(p.id),
-    })),
+    gameId: game.gameId,
+    players: roomPlayers.map((p) => {
+      const pData = {
+        id:       p.id,
+        name:     p.name,
+        isLeader: fsm.currentLeader?.id === p.id,
+        isOnTeam: (fsm.proposedTeam ?? []).includes(p.id),
+      };
+
+      if (fsm.phase === 'GAME_OVER' && game.roleAssignments) {
+        const roleInfo = game.roleAssignments.get(p.id);
+        if (roleInfo) {
+          pData.role = roleInfo.role;
+          pData.team = roleInfo.team;
+        }
+      }
+      return pData;
+    }),
   };
 }
 
@@ -100,34 +112,45 @@ io.on('connection', (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
 
   // Lobby 
-
   socket.on('join_room', ({ roomCode, displayName, action }) => {
-    // Kick any stale socket with the same identity.
+    
+    // Validate room exists if joining
+    if (action !== 'host' && !rooms[roomCode]) {
+      return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
+    }
+
+    // Prevent joining mid-game
+    const isExistingPlayer = rooms[roomCode]?.some((p) => p.name === displayName);
+    if (activeGames[roomCode] && !isExistingPlayer) {
+      return socket.emit('room_error', 'ACCESS DENIED: The game has already started!');
+    }
+
+    // Identity Theft / Reconnection logic
+    const existingPlayer = rooms[roomCode]?.find((p) => p.name === displayName);
+    
+    // If the name is taken by a DIFFERENT active socket connection -> Block
+    if (existingPlayer && existingPlayer.isConnected && existingPlayer.id !== socket.id) {
+      return socket.emit('room_error', 'ACCESS DENIED: Alias already active. Please choose a different name.');
+    }
+
+    // Clean up stale sockets for this exact user
     const stale = Array.from(io.sockets.sockets.values()).find(
       (s) => s.displayName === displayName && s.roomCode === roomCode && s.id !== socket.id
     );
     if (stale) stale.disconnect(true);
 
-    if (action !== 'host' && !rooms[roomCode]) {
-      return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
-    }
-
+    // Initialize Room if it doesn't exist yet
     getOrInitRoom(roomCode);
     socket.join(roomCode);
     socket.emit('settings_update', roomSettings[roomCode]);
     socket.emit('chat_history', roomLogs[roomCode]);
 
+    // Handle Player Data
     const isFirstPlayer = rooms[roomCode].length === 0;
     const shouldBeHost  = action === 'host' || isFirstPlayer;
 
-    const existingPlayer = rooms[roomCode].find((p) => p.name === displayName);
-
     if (!existingPlayer) {
-      // Demo room: the joining human becomes host, bots are demoted.
-      if (roomCode === 'DEMO99') {
-        rooms[roomCode].forEach((p) => { p.isHost = false; });
-      }
-
+      // Brand new player to the room
       rooms[roomCode].push({
         id:          socket.id,
         name:        displayName,
@@ -137,22 +160,23 @@ io.on('connection', (socket) => {
       });
       socket.to(roomCode).emit('player_joined', { user: displayName });
     } else {
-      // Reconnecting player: restore their socket ID and connected state.
+      // Returning player: Update their internal socket ID seamlessly
       existingPlayer.id          = socket.id;
       existingPlayer.isConnected = true;
       if (shouldBeHost) existingPlayer.isHost = true;
     }
 
+    // Update socket session data
     socket.roomCode    = roomCode;
     socket.displayName = displayName;
 
-    // Safety net: ensure there is always exactly one host.
+    // Ensure the room always has a Host
     const hasHost = rooms[roomCode].some((p) => p.isHost);
     if (!hasHost && rooms[roomCode].length > 0) rooms[roomCode][0].isHost = true;
 
     io.to(roomCode).emit('roster_update', rooms[roomCode]);
 
-    // If a game is already running, sync the rejoining player immediately.
+    // Mid-game reconnection sync
     if (activeGames[roomCode]) {
       const game      = activeGames[roomCode];
       const fsm       = game.getState();
@@ -168,6 +192,38 @@ io.on('connection', (socket) => {
       }
       socket.emit('game_state_update', buildClientGameState(roomCode));
     }
+  });
+
+  // Triggered whenever a player lands on the Home screen
+  socket.on('return_to_base', () => {
+    const { roomCode, displayName } = socket;
+    if (!roomCode || !rooms[roomCode]) return;
+
+    const playerIndex = rooms[roomCode].findIndex((p) => p.name === displayName);
+    if (playerIndex !== -1) {
+      const leavingPlayer = rooms[roomCode][playerIndex];
+      rooms[roomCode].splice(playerIndex, 1);
+      
+      socket.leave(roomCode);
+      io.to(roomCode).emit('player_left', { id: socket.id, name: displayName });
+
+      if (leavingPlayer.isHost && rooms[roomCode].length > 0) {
+        rooms[roomCode][0].isHost = true;
+      }
+
+      if (rooms[roomCode].length === 0) {
+        delete rooms[roomCode];
+        delete roomSettings[roomCode];
+        delete roomLogs[roomCode];
+        delete activeGames[roomCode];
+      } else {
+        io.to(roomCode).emit('roster_update', rooms[roomCode]);
+      }
+    }
+    
+    // Clear the socket's memory so they don't accidentally trigger this again
+    socket.roomCode = null;
+    socket.displayName = null;
   });
 
   socket.on('status_update', ({ roomCode, isReady }) => {
@@ -206,9 +262,11 @@ io.on('connection', (socket) => {
     }
 
     const fsm = new GameStateMachine(players);
+    fsm.gameId = Date.now();
     activeGames[roomCode] = fsm;
 
-    const { roleAssignments } = fsm.startGame(); // LOBBY → TEAM_SELECTION
+    fsm.startGame(); 
+    const roleAssignments = fsm.roleAssignments;
 
     // Send each player their secret role.
     players.forEach((player) => {
@@ -223,6 +281,27 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('game_started');
     broadcastGameState(roomCode);
     console.log(`🎮 Game started in room ${roomCode}`);
+  });
+
+  socket.on('join_game_dashboard', ({ roomCode, name }) => {
+    const game = activeGames[roomCode];
+    if (!game) return;
+
+    const roomPlayers = rooms[roomCode] || [];
+    const player = roomPlayers.find((p) => p.name === name);
+
+    if (player && game.roleAssignments) {
+      const roleData = game.roleAssignments.get(player.id);
+      if (roleData) {
+        socket.emit('role_assigned', {
+          role: roleData.role,
+          team: roleData.team,
+          specialInfo: roleData.specialInfo,
+        });
+      }
+    }
+
+    socket.emit('game_state_update', buildClientGameState(roomCode));
   });
 
   // Mid-game actions 
@@ -240,22 +319,22 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('cast_vote', ({ roomCode, approve }) => {
+  socket.on('submit_vote', ({ roomCode, vote }) => {
     const game = activeGames[roomCode];
     if (!game) return;
-
     try {
-      const result = game.castVote(socket.id, approve);
+      const result = game.castVote(socket.id, vote);
       if (result.resolved) {
         io.to(roomCode).emit('vote_resolved', result);
 
-        if (result.state === 'VOTE_FAILED') {
-          // Auto-advance after the 3 sec frontend pause.
+        if (result.phase === 'VOTE_FAILED') {
           setTimeout(() => {
             const next = game.advanceAfterFailedVote();
             io.to(roomCode).emit('vote_failed_advance', next);
             broadcastGameState(roomCode);
           }, 3000);
+        } else if (result.phase === 'GAME_OVER') {
+          io.to(roomCode).emit('game_over', result);
         }
       }
       broadcastGameState(roomCode);
@@ -264,24 +343,24 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('submit_quest_action', ({ roomCode, pass }) => {
+  socket.on('submit_quest_vote', ({ roomCode, vote }) => {
     const game = activeGames[roomCode];
     if (!game) return;
-
     try {
-      const result = game.submitQuestAction(socket.id, pass);
+      const result = game.submitQuestAction(socket.id, vote);
       if (result.resolved) {
         io.to(roomCode).emit('quest_result', result);
 
-        // Auto advance after the 4 sec reveal pause.
         setTimeout(() => {
           const next = game.advanceAfterQuestResult();
-          io.to(roomCode).emit('quest_result_advance', next);
-          broadcastGameState(roomCode);
-
-          if (next.currentState === 'GAME_OVER') {
+          
+          if (next.phase === 'GAME_OVER') {
             io.to(roomCode).emit('game_over', next);
+          } else {
+            io.to(roomCode).emit('quest_result_advance', next);
           }
+          
+          broadcastGameState(roomCode);
         }, 4000);
       }
       broadcastGameState(roomCode);
@@ -290,7 +369,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('resolve_assassination', ({ roomCode, targetId }) => {
+  socket.on('submit_assassination', ({ roomCode, targetId }) => {
     const game = activeGames[roomCode];
     if (!game) return;
 

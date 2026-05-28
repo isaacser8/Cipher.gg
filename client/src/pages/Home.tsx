@@ -3,11 +3,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, User as UserIcon, Lock, Plus, LogIn } from 'lucide-react';
 import { useUser, SignInButton, SignedIn, SignedOut, UserButton } from "@clerk/clerk-react";
+import { useSocket } from '../context/useSocket';
 
 export default function Home() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, isSignedIn } = useUser();
+  const { socket } = useSocket();
 
   const [mode, setMode] = useState<'join' | 'host'>('join');
   const [roomCode, setRoomCode] = useState(
@@ -33,6 +35,12 @@ export default function Home() {
       sessionStorage.setItem('pendingRoomCode', location.state.redirectedFrom);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    if (socket) {
+      socket.emit('return_to_base');
+    }
+  }, [socket]);
 
   const generateSecureCode = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
