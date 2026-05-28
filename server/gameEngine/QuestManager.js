@@ -211,7 +211,8 @@ class QuestManager {
             leader: this.players[this.currentLeaderIndex],
             succeeded: questSucceeded, 
             failCount, 
-            successCount
+            successCount,
+            teamVotes: Object.fromEntries(this.teamVotes)
         });
 
         const result = {

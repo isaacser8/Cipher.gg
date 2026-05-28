@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Send, MessageSquare } from 'lucide-react';
-import { useSocket } from '../context/useSocket';
+import { useSocket } from '../../context/useSocket';
 
 interface ChatBoxProps {
   roomCode: string;

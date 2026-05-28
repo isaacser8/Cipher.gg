@@ -114,32 +114,56 @@ io.on('connection', (socket) => {
   // Lobby 
   socket.on('join_room', ({ roomCode, displayName, action }) => {
     
+    // Ban all spaces, empty names, and absurdly long names
+    const trimmedName = (displayName || '').trim();
+    
+    if (!trimmedName || trimmedName.length < 1) {
+      return socket.emit('room_error', 'ACCESS DENIED: Agent name cannot be blank or just spaces.');
+    }
+    if (trimmedName.length > 15) {
+      return socket.emit('room_error', 'ACCESS DENIED: Agent name must be 15 characters or less.');
+    }
+
+    const safeName = trimmedName;
+
+    // Wipe the old game state so the room can start fresh
+    if (activeGames[roomCode] && activeGames[roomCode].getState().phase === 'GAME_OVER') {
+      delete activeGames[roomCode];
+      // Force everyone currently in the room back to standby
+      if (rooms[roomCode]) {
+        rooms[roomCode].forEach(p => p.isReady = false);
+      }
+    }
+
     // Validate room exists if joining
     if (action !== 'host' && !rooms[roomCode]) {
       return socket.emit('room_error', 'ACCESS DENIED: Room does not exist.');
     }
 
     // Prevent joining mid-game
-    const isExistingPlayer = rooms[roomCode]?.some((p) => p.name === displayName);
+    const isExistingPlayer = rooms[roomCode]?.some((p) => p.name === safeName);
     if (activeGames[roomCode] && !isExistingPlayer) {
       return socket.emit('room_error', 'ACCESS DENIED: The game has already started!');
     }
 
+    if (!isExistingPlayer && rooms[roomCode] && rooms[roomCode].length >= 5) {
+      return socket.emit('room_error', 'ACCESS DENIED: The lobby is full (Max 5 Agents).');
+    }
+
     // Identity Theft / Reconnection logic
-    const existingPlayer = rooms[roomCode]?.find((p) => p.name === displayName);
+    const existingPlayer = rooms[roomCode]?.find((p) => p.name === safeName);
     
-    // If the name is taken by a DIFFERENT active socket connection -> Block
     if (existingPlayer && existingPlayer.isConnected && existingPlayer.id !== socket.id) {
       return socket.emit('room_error', 'ACCESS DENIED: Alias already active. Please choose a different name.');
     }
 
-    // Clean up stale sockets for this exact user
+    // Clean up any stale sockets
     const stale = Array.from(io.sockets.sockets.values()).find(
-      (s) => s.displayName === displayName && s.roomCode === roomCode && s.id !== socket.id
+      (s) => s.displayName === safeName && s.roomCode === roomCode && s.id !== socket.id
     );
     if (stale) stale.disconnect(true);
 
-    // Initialize Room if it doesn't exist yet
+    // Initialize Room
     getOrInitRoom(roomCode);
     socket.join(roomCode);
     socket.emit('settings_update', roomSettings[roomCode]);
@@ -150,27 +174,27 @@ io.on('connection', (socket) => {
     const shouldBeHost  = action === 'host' || isFirstPlayer;
 
     if (!existingPlayer) {
-      // Brand new player to the room
+      // Brand new player
       rooms[roomCode].push({
         id:          socket.id,
-        name:        displayName,
+        name:        safeName,
         isHost:      shouldBeHost,
         isReady:     false,
         isConnected: true,
       });
-      socket.to(roomCode).emit('player_joined', { user: displayName });
+      socket.to(roomCode).emit('player_joined', { user: safeName });
     } else {
-      // Returning player: Update their internal socket ID seamlessly
+      // Returning player
       existingPlayer.id          = socket.id;
       existingPlayer.isConnected = true;
+      existingPlayer.isReady     = false;
       if (shouldBeHost) existingPlayer.isHost = true;
     }
 
-    // Update socket session data
     socket.roomCode    = roomCode;
-    socket.displayName = displayName;
+    socket.displayName = safeName;
 
-    // Ensure the room always has a Host
+    // Ensure Host exists
     const hasHost = rooms[roomCode].some((p) => p.isHost);
     if (!hasHost && rooms[roomCode].length > 0) rooms[roomCode][0].isHost = true;
 
@@ -180,7 +204,7 @@ io.on('connection', (socket) => {
     if (activeGames[roomCode]) {
       const game      = activeGames[roomCode];
       const fsm       = game.getState();
-      const player    = rooms[roomCode].find((p) => p.name === displayName);
+      const player    = rooms[roomCode].find((p) => p.name === safeName);
       const roleData  = player ? game.roleAssignments?.get(player.id) : null;
 
       if (roleData) {
