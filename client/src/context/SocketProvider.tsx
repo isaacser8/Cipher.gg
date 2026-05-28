@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
 import { useUser } from '@clerk/clerk-react';
 import { SocketContext } from './SocketContext';
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
-  const [socket, setSocket] = useState(null as any);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const { isLoaded } = useUser();
 
@@ -29,6 +29,8 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
 
     return () => {
       socketInstance.disconnect();
+      setSocket(null);
+      setIsConnected(false);
     };
   }, [isLoaded]);
 

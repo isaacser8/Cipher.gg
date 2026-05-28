@@ -66,7 +66,7 @@ class AssassinationManager {
         const targets = []; 
         for (const player of this.players) {
             const roleData = this.roleAssignments.get(player.id); 
-            if (roleData.team == 'good') {
+            if (roleData.team === 'good') {
                 targets.push({
                     id: player.id, 
                     name: player.name

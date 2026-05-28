@@ -25,8 +25,8 @@ class QuestManager {
 
         // Current quest data 
         this.proposedTeam = [];
-        this.teamVotes = new Map(); // playerId -> 'approve' | 'reject'
-        this.questVotes = new Map(); // playerId -> 'success' | 'fail'
+        this.teamVotes = new Map(); // playerId -> approve | reject
+        this.questVotes = new Map(); // playerId -> success | fail
 
         this.questHistory = []; 
     }
@@ -88,7 +88,7 @@ class QuestManager {
     /**
      * Player casts a vote on the proposed team 
      * @param {string} playerId
-     * @param {string} vote - 'approve' or 'reject'
+     * @param {string} vote - approve or reject
      */
     castTeamVote(playerId, vote) {
         if (!['approve', 'reject'].includes(vote)) {
@@ -257,7 +257,6 @@ class QuestManager {
         this.questVotes.clear();
         this.proposedTeam = []; 
         this.teamVotes.clear(); 
-        this.votesRejected = 0;
 
         // Move to next quest 
         this.currentQuest += 1;
