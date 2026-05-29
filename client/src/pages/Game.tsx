@@ -21,11 +21,47 @@ import AgentRosterPanel from '../components/panels/AgentRosterPanel';
 import RoleCardPanel from '../components/panels/RoleCardPanel';
 
 // Interfaces
-interface Player { id: string; name: string; isLeader?: boolean; isOnTeam?: boolean; role?: string; team?: string; }
-interface Intel { id: string; name: string; }
-interface MyRole { role: string; team: string; specialInfo: Intel[]; }
-interface QuestRecord { questNumber: number; succeeded: boolean; failCount: number; successCount: number; team: string[]; leader: { id: string; name: string }; teamVotes?: Record<string, 'approve' | 'reject'>; }
-interface GameState { phase: string; currentQuest: number; votesRejected: number; players: Player[]; winner?: 'good' | 'evil' | null; questsWon?: { good: number; evil: number }; proposedTeam?: string[]; currentLeader?: { id: string; name: string }; questHistory?: QuestRecord[]; teamVotesCast?: string[]; questVotesCast?: string[]; gameId?: number; winReason?: string; }
+interface Player {
+  id: string;
+  name: string;
+  isLeader?: boolean;
+  isOnTeam?: boolean;
+  role?: string;
+  team?: string;
+}
+interface Intel {
+  id: string;
+  name: string;
+}
+interface MyRole {
+  role: string;
+  team: string;
+  specialInfo: Intel[];
+}
+interface QuestRecord {
+  questNumber: number;
+  succeeded: boolean;
+  failCount: number;
+  successCount: number;
+  team: string[];
+  leader: { id: string; name: string };
+  teamVotes?: Record<string, "approve" | "reject">;
+}
+interface GameState {
+  phase: string;
+  currentQuest: number;
+  votesRejected: number;
+  players: Player[];
+  winner?: "good" | "evil" | null;
+  questsWon?: { good: number; evil: number };
+  proposedTeam?: string[];
+  currentLeader?: { id: string; name: string };
+  questHistory?: QuestRecord[];
+  teamVotesCast?: string[];
+  questVotesCast?: string[];
+  gameId?: number;
+  winReason?: string;
+}
 
 const QUEST_TEAM_SIZES: Record<number, number> = { 1: 2, 2: 3, 3: 2, 4: 3, 5: 3 };
 
@@ -46,7 +82,7 @@ export default function Game() {
 
   const { phase, players, currentQuest, votesRejected, winner, questsWon, proposedTeam, currentLeader, questHistory, teamVotesCast, questVotesCast, gameId, winReason } = gameState;
   const requiredTeamSize = QUEST_TEAM_SIZES[currentQuest] ?? 2;
-  
+
   const amILeader = players.find(p => p.isLeader)?.name === myName;
   const amIOnTeam = players.find(p => p.name === myName)?.isOnTeam ?? false;
   const myId = players.find(p => p.name === myName)?.id ?? '';
@@ -97,7 +133,7 @@ export default function Game() {
   const handleQuestVote = (vote: 'success' | 'fail') => {
     if (!socket || hasQuestVoted) return;
     socket.emit('submit_quest_vote', { roomCode, vote });
-    sessionStorage.setItem(`questVote_${gameId}_${currentQuest}`, vote);  
+    sessionStorage.setItem(`questVote_${gameId}_${currentQuest}`, vote);
   };
 
   const handleAssassination = () => {
@@ -106,8 +142,8 @@ export default function Game() {
   };
 
   const handleTimerExpire = useCallback(() => {
-    if (phase === 'TEAM_VOTING' && !hasVoted) handleVote('reject'); 
-    else if (phase === 'QUEST_EXECUTION' && amIOnTeam && !hasQuestVoted) handleQuestVote('success'); 
+    if (phase === 'TEAM_VOTING' && !hasVoted) handleVote('reject');
+    else if (phase === 'QUEST_EXECUTION' && amIOnTeam && !hasQuestVoted) handleQuestVote('success');
   }, [phase, hasVoted, hasQuestVoted, amIOnTeam]);
 
   if (phase === 'GAME_OVER') return <Result winner={winner} questsWon={questsWon} roomCode={roomCode!} myName={myName} players={players} winReason={winReason} />;
@@ -125,7 +161,7 @@ export default function Game() {
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Leadership passes to the next agent...</p>
         </div>
       );
-      case 'QUEST_RESULT': 
+      case 'QUEST_RESULT':
         const lastQuest = questHistory?.slice(-1)[0];
         return (
           <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-2">
