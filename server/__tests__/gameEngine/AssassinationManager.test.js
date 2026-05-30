@@ -41,7 +41,7 @@ describe ('AssassinationManager', () => {
         }).toThrow('Only the Assassin can select a target');
     }); 
 
-    test('Evil wins if Assassin guesses Merlin correctl', () => {
+    test('Evil wins if Assassin guesses Merlin correctly', () => {
         manager.selectTarget(manager.assassinId, manager.merlinId); 
         const result = manager.resolveAssassination(); 
 
@@ -63,4 +63,17 @@ describe ('AssassinationManager', () => {
         
     }); 
 
-}); 
+    afterAll((done) => {
+    // Close the socket connections
+      if (clientSocket) {
+        clientSocket.disconnect();
+      }
+    // Close the actual HTTP server
+      if (httpServer) {
+        httpServer.close(done);
+      } else {
+        done();
+      }
+    });
+
+});

@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "jest",
+    "dev": "nodemon server.js",
+    "test": "jest --detectOpenHandles",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage"
   },
@@ -29,6 +30,7 @@
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "jest": "^30.4.2"
+    "jest": "^30.4.2",
+    "socket.io-client": "^4.8.3"
   }
 }

@@ -1,95 +1,192 @@
-const RoleAssigner = require('./RoleAssigner'); 
-const QuestManager = require('./QuestManager'); 
-const AssassinationManager = require('./AssassinationManager'); 
+const RoleAssigner = require('./RoleAssigner');
+const QuestManager = require('./QuestManager');
+const AssassinationManager = require('./AssassinationManager');
 
+/**
+ * GameStateMachine
+ * Orchestrates all game phases and enforces valid state transitions.
+ * server.js delegates all game logic here, it only handles socket I/O
+ * and calls into this class.
+ *
+ * States:
+ *   LOBBY
+ *   → ROLE_ASSIGNMENT
+ *   → TEAM_SELECTION      (leader proposes team with 2 min timer)
+ *   → TEAM_VOTING         (all players vote with 90 sec timer)
+ *   → VOTE_FAILED         (3s pause before rotating leader)
+ *   → QUEST_EXECUTION     (team members submit pass/fail, 2 min timer)
+ *   → QUEST_RESULT        (4s reveal pause)
+ *   → ASSASSINATION_PHASE (good won 3 quests then assassin picks target)
+ *   → GAME_OVER
+ */
 class GameStateMachine {
-    constructor(players) {
-        this.players = players; 
-        this.currentState = 'LOBBY'; 
+  constructor(players) {
+    this.players = players;
+    this.currentState = 'LOBBY';
 
-        this.roleAssignmets = null; 
-        this.questManager = null; 
-        this.assassinationManager = null; 
+    this.roleAssignments = null;
+    this.questManager = null;
+    this.assassinationManager = null;
 
-        this.winner = null; 
-        this.winReason = null;
+    this.winner = null;
+    this.winReason = null;
+  }
+
+  // Transition helpers 
+
+  _assertState(expected) {
+    if (this.currentState !== expected) {
+      throw new Error(
+        `Invalid action: expected state "${expected}" but current state is "${this.currentState}"`
+      );
+    }
+  }
+
+  _transition(newState) {
+    console.log(`[FSM] ${this.currentState} → ${newState}`);
+    this.currentState = newState;
+  }
+
+  // Phase transitions 
+
+  // LOBBY → ROLE_ASSIGNMENT → TEAM_SELECTION
+  startGame() {
+    this._assertState('LOBBY');
+
+    this.roleAssignments = RoleAssigner.assignRoles(this.players);
+    this.questManager = new QuestManager(this.players);
+
+    this._transition('ROLE_ASSIGNMENT');
+
+    // Move straight to the first quest.
+    return this._beginTeamSelection();
+  }
+
+  // → TEAM_SELECTION 
+  _beginTeamSelection() {
+    this._transition('TEAM_SELECTION');
+    const questState = this.questManager.getGameState();
+    return {
+      state: this.currentState,
+      ...questState,
+    };
+  }
+
+  /**
+   * Leader submits their proposed team.
+   * TEAM_SELECTION → TEAM_VOTING
+   *
+   * @param {string}   leaderId
+   * @param {string[]} proposedTeamIds
+   */
+  proposeTeam(leaderId, proposedTeamIds) {
+    this._assertState('TEAM_SELECTION');
+    const questState = this.questManager.getGameState();
+
+    if (questState.currentLeader?.id !== leaderId) {
+      throw new Error('Only the current leader can propose a team.');
     }
 
-    // State: LOBBY -> ROLE_ASSIGNMENT 
-    startGame() {
-        if (this.currentState !== 'LOBBY') {
-            throw new Error('Game already started'); 
-        }
+    this.questManager.proposeTeam(leaderId, proposedTeamIds);
+    this._transition('TEAM_VOTING');
 
-        this.roleAssignmets = RoleAssigner.assignRoles(this.players);
-        this.questManager = new QuestManager(this.players); 
-        this.currentState = 'ROLE_ASSIGNMENT'; 
+    return { state: this.currentState, proposedTeam: proposedTeamIds };
+  }
 
-        return {
-            state: this.currentState, 
-            roleAssignments: this.roleAssignments
-        }
+  castVote(playerId, vote) {
+    this._assertState('TEAM_VOTING');
+    
+    const voteStatus = this.questManager.castTeamVote(playerId, vote);
+    if (!voteStatus.allVoted) return { state: this.currentState, resolved: false };
+
+    const voteResult = this.questManager.resolveTeamVotes();
+
+    if (voteResult.approved) {
+      this._transition('QUEST_EXECUTION');
+    } else if (voteResult.evilWins) {
+      this._transition('GAME_OVER');
+      this.winner = 'evil';
+      this.winReason = 'Five consecutive teams rejected.';
+      return this.getState();
+    } else {
+      this._transition('VOTE_FAILED');
     }
 
-    // State: ROLE_ASSIGNMENT -> QUEST_PHASE 
-    beginQuests() {
-        if (this.currentState !== 'ROLE_ASSIGNMENT') {
-            throw new Error('Invalid state transition'); 
-        }
+    return { state: this.currentState, resolved: true, ...voteResult };
+  }
 
-        this.currentState = 'QUEST_PHASE';
-        return this.questManager.startQuest(); 
+  submitQuestAction(playerId, vote) {
+    this._assertState('QUEST_EXECUTION');
+
+    const actionStatus = this.questManager.castQuestVote(playerId, vote);
+    if (!actionStatus.allVoted) return { state: this.currentState, resolved: false };
+
+    const actionResult = this.questManager.resolveQuestVotes();
+    this._transition('QUEST_RESULT');
+    return { state: this.currentState, resolved: true, ...actionResult };
+  }
+
+  advanceAfterQuestResult() {
+    this._assertState('QUEST_RESULT');
+
+    const { questsWon } = this.questManager.getGameState();
+
+    if (questsWon.good >= 3) {
+      this._transition('ASSASSINATION_PHASE');
+      this.assassinationManager = new AssassinationManager(
+        this.players,
+        this.roleAssignments
+      );
+      return {
+        state: this.currentState,
+        assassin: this.assassinationManager.getAssassin(),
+        targets: this.assassinationManager.getPossibleTargets(),
+      };
     }
 
-    // Handle quest completion 
-    completeQuest(questResult) {
-        if (questResult.triggerAssassination) {
-            this.currentState = 'ASSASSINATION_PHASE'; 
-            this.assassinationManager = new AssassinationManager(
-                this.players, 
-                this.roleAssignments
-            ); 
-            return {
-                state: this.currentState, 
-                assassin: this.assassinationManager.getAssassin(), 
-                targets: this.assassinationManager.getPossibleTargets()
-            }; 
-        }
-
-        if (questResult.gameOver) {
-            this.currentState = 'GAME_OVER'; 
-            this.winner = questResult.winner; 
-            this.winReason = questResult.reason; 
-        }
-
-        return { state: this.currentState }; 
+    if (questsWon.evil >= 3) {
+      this._transition('GAME_OVER');
+      this.winner = 'evil';
+      this.winReason = 'Evil sabotaged 3 quests.';
+      return this.getState();
     }
 
-    // Handle assassination
-    resolveAssassination(assassinId, targetId) {
-        if (this.currentState !== 'ASSASSINATION_PHASE') {
-            throw new Error('Not in assassination phase');
-        }
+    this.questManager.nextQuest(); 
+    
+    return this._beginTeamSelection();
+  }
 
-        this.assassinationManager.selectTarget(assassinId, targetId); 
-        const result = this.assassinationManager.resolveAssassination(); 
+  /**
+   * Assassin picks their target.
+   * ASSASSINATION_PHASE → GAME_OVER
+   *
+   * @param {string} assassinId
+   * @param {string} targetId
+   */
+  resolveAssassination(assassinId, targetId) {
+    this._assertState('ASSASSINATION_PHASE');
 
-        this.currentState = 'GAME_OVER'; 
-        this.winner = result.winner; 
-        this.winReason = result.reason; 
+    this.assassinationManager.selectTarget(assassinId, targetId);
+    const result = this.assassinationManager.resolveAssassination();
 
-        return result; 
-    }
+    this._transition('GAME_OVER');
+    this.winner = result.winner;
+    this.winReason = result.reason;
 
-    getState() {
-        return {
-            currentState: this.currentState, 
-            winner: this.winner, 
-            winReason: this.winReason
-        }; 
-    }
+    return this.getState();
+  }
 
+  // Serialisation
+
+  getState() {
+    const questState = this.questManager?.getGameState() ?? {};
+    return {
+      phase: this.currentState,
+      winner: this.winner,
+      winReason: this.winReason,
+      ...questState,
+    };
+  }
 }
 
-
-module.exports = GameStateMachine; 
+module.exports = GameStateMachine;
