@@ -116,17 +116,4 @@ describe('RoleAssigner', () => {
         });
     });
 
-    afterAll((done) => {
-        // Close the socket connections
-      if (clientSocket) {
-        clientSocket.disconnect();
-      }
-        // Close the actual HTTP server
-      if (httpServer) {
-        httpServer.close(done);
-      } else {
-        done();
-      }
-    });
-    
 });
