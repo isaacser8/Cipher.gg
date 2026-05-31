@@ -123,17 +123,20 @@ class AssassinationManager {
             gameOver: true
         };
 
+        const assassin = this.players.find(p => p.id === this.assassinId);
+        const target = this.players.find(p => p.id === this.targetId);
+
         if (this.guessedCorrectly) {
             return {
                 ...result, 
                 winner: 'evil', 
-                reason: 'Assassin correctly identified Merlin'
+                reason: `Agent ${assassin.name} successfully assassinated Agent ${target.name}. Merlin has fallen.`
             }; 
         } else {
             return {
                 ...result,
                 winner: 'good',
-                reason: 'Assassin failed to identify Merlin'
+                reason: `Agent ${assassin.name} assassinated Agent ${target.name}, but they were not Merlin! The Resistance survives.`
             };
         }
     }
