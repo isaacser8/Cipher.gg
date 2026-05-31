@@ -61,7 +61,7 @@ const activeGames  = {};
 
 function getOrInitRoom(roomCode) {
   if (!rooms[roomCode])        rooms[roomCode]        = [];
-  if (!roomSettings[roomCode]) roomSettings[roomCode] = { teamSize: 10 };
+  if (!roomSettings[roomCode]) roomSettings[roomCode] = { teamSize: 5 };
   if (!roomLogs[roomCode])     roomLogs[roomCode]     = [];
 }
 

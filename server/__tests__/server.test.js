@@ -12,7 +12,7 @@ describe('Cipher.gg Backend Socket Infrastructure', () => {
 
   // 2. Disconnect the ghost client after tests finish
   afterAll(() => {
-    if (clientSocket.connected) {
+    if (clientSocket && clientSocket.connected) {
       clientSocket.disconnect();
     }
   });
@@ -61,17 +61,4 @@ describe('Cipher.gg Backend Socket Infrastructure', () => {
     });
   });
 
-  afterAll((done) => {
-    // Close the socket connections
-    if (clientSocket) {
-      clientSocket.disconnect();
-    }
-    // Close the actual HTTP server
-    if (httpServer) {
-      httpServer.close(done);
-    } else {
-      done();
-    }
-  });
-  
 });
