@@ -156,6 +156,11 @@ class GameStateMachine {
     return this._beginTeamSelection();
   }
 
+  advanceAfterFailedVote() {
+    this._assertState('VOTE_FAILED');
+    return this._beginTeamSelection();
+  }
+
   /**
    * Assassin picks their target.
    * ASSASSINATION_PHASE → GAME_OVER

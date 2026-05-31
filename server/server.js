@@ -33,7 +33,7 @@ mongoose
     console.log('✅ Successfully connected to MongoDB Atlas (CipherGG-DB)');
     server.listen(PORT, () => {
       console.log(`🚀 Server and WebSockets running on port ${PORT}`);
-    });
+    }); 
   })
   .catch((error) => {
     console.error('❌ Error connecting to MongoDB:', error.message);
@@ -351,7 +351,7 @@ io.on('connection', (socket) => {
       if (result.resolved) {
         io.to(roomCode).emit('vote_resolved', result);
 
-        if (result.phase === 'VOTE_FAILED') {
+        if (result.state === 'VOTE_FAILED') {
           setTimeout(() => {
             const next = game.advanceAfterFailedVote();
             io.to(roomCode).emit('vote_failed_advance', next);
