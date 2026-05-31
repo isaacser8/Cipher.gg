@@ -14,7 +14,7 @@ interface ResultProps {
 export default function Result({ winner, questsWon, roomCode, myName, players = [], winReason }: ResultProps) {
   const navigate = useNavigate();
 
-  const isAssassination = winReason?.toLowerCase().includes('assassin') || winReason?.toLowerCase().includes('merlin');
+  const isAssassination = winner === 'evil' && (winReason?.toLowerCase().includes('assassin') || winReason?.toLowerCase().includes('merlin'));
 
   return (
     <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex items-center justify-center p-4">
