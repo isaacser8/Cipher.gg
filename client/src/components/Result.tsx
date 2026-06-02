@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion';
 import { Crown, Skull } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { Player } from '../types/game'; 
 
 interface ResultProps {
   winner: 'good' | 'evil' | null | undefined;
   questsWon: { good: number; evil: number } | undefined;
   roomCode: string;
   myName: string;
-  players?: any[];
+  players?: Player[];
   winReason?: string;
 }
 

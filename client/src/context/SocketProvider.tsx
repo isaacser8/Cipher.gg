@@ -15,6 +15,7 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
       import.meta.env.VITE_SOCKET_URL || 'https://ciphergg-production.up.railway.app';
     const socketInstance = io(SOCKET_URL);
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {

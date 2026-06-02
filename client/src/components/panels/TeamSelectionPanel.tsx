@@ -1,10 +1,11 @@
 import { motion } from 'framer-motion';
 import { Swords, Clock } from 'lucide-react';
+import type { Player } from '../../types/game'; 
 
 interface Props {
-  players: any[];
+  players: Player[];
   amILeader: boolean;
-  currentLeader: any;
+  currentLeader: { id: string; name: string } | undefined;
   currentQuest: number;
   requiredTeamSize: number;
   selectedTeam: string[];

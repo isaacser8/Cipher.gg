@@ -20,13 +20,15 @@ export default function PhaseTimer({ phase, initialSeconds, currentQuest, votesR
     const savedEndTime = sessionStorage.getItem(storageKey);
     if (savedEndTime) {
       const remaining = Math.floor((parseInt(savedEndTime) - Date.now()) / 1000);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTimeLeft(remaining > 0 ? remaining : 0);
     } else {
       const endTime = Date.now() + (initialSeconds * 1000);
       sessionStorage.setItem(storageKey, endTime.toString());
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTimeLeft(initialSeconds);
     }
-  }, [phase, initialSeconds, currentQuest, votesRejected]);
+  }, [phase, initialSeconds, currentQuest, votesRejected, gameId]);
 
   // Countdown Loop
   useEffect(() => {
