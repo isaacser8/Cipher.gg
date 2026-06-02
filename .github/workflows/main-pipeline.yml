@@ -39,6 +39,8 @@ jobs:
           npm install
           npm run lint --if-present
           npm test
+        env: 
+          MONGO_URI: ${{ secrets.MONGO_URI }}
 
       - name: Generate Backend Coverage 
         working-directory: ./server
