@@ -4,17 +4,20 @@ describe('Cipher.gg Backend Socket Infrastructure', () => {
   let clientSocket;
   const TEST_PORT = 5005; 
 
-  // 1. Connect a ghost client before running the tests
+  // Start the server and connect before tests 
   beforeAll((done) => {
-    clientSocket = io(`http://localhost:${TEST_PORT}`);
-    clientSocket.on('connect', done);
-  });
+    const { testServer } = require('../server');
+    testServer.listen(TEST_PORT, () => {
+      clientSocket = io(`http://localhost:${TEST_PORT}`);
+      clientSocket.on('connect', done);
+    }); 
+  }, 15000); // 15 seconds to allow MongoDB to connect
 
-  // 2. Disconnect the ghost client after tests finish
-  afterAll(() => {
-    if (clientSocket && clientSocket.connected) {
-      clientSocket.disconnect();
-    }
+  // Disconnect and close server after tests
+  afterAll((done) => {
+    clientSocket.disconnect(); 
+    const { testServer } = require('../server');
+    testServer.close(done); 
   });
 
   // TESTS
