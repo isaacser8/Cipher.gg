@@ -31,9 +31,11 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log('✅ Successfully connected to MongoDB Atlas (CipherGG-DB)');
-    server.listen(PORT, () => {
-      console.log(`🚀 Server and WebSockets running on port ${PORT}`);
-    }); 
+    if (require.main === module) { // Only start server if this file is run directly, not imported for tests
+      server.listen(PORT, () => {
+        console.log(`🚀 Server and WebSockets running on port ${PORT}`);
+      });
+    }
   })
   .catch((error) => {
     console.error('❌ Error connecting to MongoDB:', error.message);
@@ -444,3 +446,5 @@ io.on('connection', (socket) => {
 // REST 
 
 app.get('/', (_req, res) => res.send('Cipher.gg API is running!'));
+
+module.exports = { testServer: server }; 

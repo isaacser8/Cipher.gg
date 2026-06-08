@@ -1,11 +1,12 @@
 import { motion } from 'framer-motion';
 import { Check, X, Clock } from 'lucide-react';
+import type { MyRole } from '../../types/game'; 
 
 interface Props {
   amIOnTeam: boolean;
   currentQuest: number;
   hasQuestVoted: boolean;
-  myRole: any;
+  myRole: MyRole;
   handleQuestVote: (vote: 'success' | 'fail') => void;
 }
 

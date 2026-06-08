@@ -144,7 +144,7 @@ export default function Game() {
   const handleTimerExpire = useCallback(() => {
     if (phase === 'TEAM_VOTING' && !hasVoted) handleVote('reject');
     else if (phase === 'QUEST_EXECUTION' && amIOnTeam && !hasQuestVoted) handleQuestVote('success');
-  }, [phase, hasVoted, hasQuestVoted, amIOnTeam]);
+  }, [phase, hasVoted, hasQuestVoted, amIOnTeam, handleQuestVote]);
 
   if (phase === 'GAME_OVER') return <Result winner={winner} questsWon={questsWon} roomCode={roomCode!} myName={myName} players={players} winReason={winReason} />;
 
@@ -161,7 +161,7 @@ export default function Game() {
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Leadership passes to the next agent...</p>
         </div>
       );
-      case 'QUEST_RESULT':
+      case 'QUEST_RESULT': {
         const lastQuest = questHistory?.slice(-1)[0];
         return (
           <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-2">
@@ -174,6 +174,7 @@ export default function Game() {
             <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest mt-2">{lastQuest?.successCount} Success / {lastQuest?.failCount} Sabotage</p>
           </div>
         );
+      }
       default: return (
         <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 flex-grow flex items-center justify-center">
           <p className="text-slate-500 text-sm animate-pulse uppercase tracking-widest">{phase.replaceAll('_', ' ')}...</p>

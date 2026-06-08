@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 import { AlertTriangle } from 'lucide-react';
-
+import type { Player, MyRole } from '../../types/game'; 
 interface Props {
-  myRole: any;
-  players: any[];
+  myRole: MyRole;
+  players: Player[];
   myName: string;
   sniperTarget: string | null;
   setSniperTarget: (id: string) => void;

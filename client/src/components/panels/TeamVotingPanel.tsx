@@ -1,8 +1,9 @@
 import { motion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
+import type { Player } from '../../types/game'; 
 
 interface TeamVotingPanelProps {
-  players: any[];
+  players: Player[];
   proposedTeam: string[];
   hasVoted: boolean;
   handleVote: (vote: 'approve' | 'reject') => void;

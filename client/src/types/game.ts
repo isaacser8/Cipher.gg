@@ -1,3 +1,23 @@
+export interface Player { 
+  id: string; 
+  name: string; 
+  isLeader?: boolean; 
+  isOnTeam?: boolean; 
+  role?: string; 
+  team?: string; 
+}
+
+export interface Intel {
+  id: string; 
+  name: string; 
+}
+
+export interface MyRole {
+  role: string; 
+  team: string; 
+  specialInfo: Intel[]; 
+}
+
 export interface QuestRecord {
   questNumber: number;
   succeeded: boolean;
