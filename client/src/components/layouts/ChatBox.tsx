@@ -5,12 +5,14 @@ import { useSocket } from '../../context/useSocket';
 interface ChatBoxProps {
   roomCode: string;
   myName: string;
+  myRole?: { role: string; team: string };
+  phase?: string; 
 }
 
-export default function ChatBox({ roomCode, myName }: ChatBoxProps) {
-  const { socket } = useSocket();
+export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProps) {  const { socket } = useSocket();
   const [messages, setMessages] = useState<string[]>([]);
   const [newMessage, setNewMessage] = useState('');
+  const [channel, setChannel] = useState<'global' | 'evil'>('global');
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,7 +36,7 @@ export default function ChatBox({ roomCode, myName }: ChatBoxProps) {
     };
   }, [socket]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = (e: React.SyntheticEvent) => {
     e.preventDefault();
     if (!newMessage.trim() || !socket) return;
 
@@ -42,6 +44,7 @@ export default function ChatBox({ roomCode, myName }: ChatBoxProps) {
       roomCode,
       sender: myName,
       message: newMessage.trim(),
+      channel: channel 
     });
 
     setNewMessage('');
@@ -49,9 +52,28 @@ export default function ChatBox({ roomCode, myName }: ChatBoxProps) {
 
   return (
     <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex flex-col h-[400px]">
-      <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-4">
-        <MessageSquare className="w-5 h-5 text-cyan-400" />
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Secure Comms</h3>
+      <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-4">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-cyan-400" />
+          <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Secure Comms</h3>
+        </div>
+
+        {myRole?.team === 'evil' && phase === 'PRE_GAME_STRATEGY' && (
+          <div className="flex bg-black/40 rounded-lg p-1 border border-white/10">
+            <button 
+              onClick={() => setChannel('global')}
+              className={`px-3 py-1 text-[10px] font-bold rounded transition-colors uppercase tracking-widest ${channel === 'global' ? 'bg-cyan-500/20 text-cyan-400' : 'text-slate-500'}`}
+            >
+              Global
+            </button>
+            <button 
+              onClick={() => setChannel('evil')}
+              className={`px-3 py-1 text-[10px] font-bold rounded transition-colors uppercase tracking-widest ${channel === 'evil' ? 'bg-rose-500/20 text-rose-400' : 'text-slate-500'}`}
+            >
+              Evil
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex-grow overflow-y-auto mb-4 space-y-2 pr-2">

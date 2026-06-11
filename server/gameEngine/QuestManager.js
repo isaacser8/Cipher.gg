@@ -19,7 +19,7 @@ class QuestManager {
 
         // Game state 
         this.currentQuest = 1;
-        this.currentLeaderIndex = 0;
+        this.currentLeaderIndex = Math.floor(Math.random() * this.players.length);
         this.votesRejected = 0;
         this.questsWon = { good: 0, evil: 0 };
 

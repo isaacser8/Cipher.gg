@@ -269,13 +269,26 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('send_message', ({ roomCode, sender, message }) => {
+  socket.on('send_message', ({ roomCode, sender, message, channel }) => {
     const timestamp = new Date().toLocaleTimeString('en-US', {
       hour12: false, hour: '2-digit', minute: '2-digit',
     });
-    const formatted = `[${timestamp}] ${sender}: ${message}`;
-    roomLogs[roomCode]?.push(formatted);
-    io.to(roomCode).emit('receive_message', { text: formatted });
+    
+    if (channel === 'evil') {
+      const game = activeGames[roomCode];
+      if (game && game.getState().phase !== 'PRE_GAME_STRATEGY') {
+        return socket.emit('game_error', 'ACCESS DENIED: Secure comms channel is locked.');
+      }
+
+      const formatted = `[${timestamp}] [EVIL] ${sender}: ${message}`;
+      // Send ONLY to the evil room
+      io.to(`${roomCode}_EVIL`).emit('receive_message', { text: formatted });
+    } else {
+      // Normal global message
+      const formatted = `[${timestamp}] ${sender}: ${message}`;
+      roomLogs[roomCode]?.push(formatted);
+      io.to(roomCode).emit('receive_message', { text: formatted });
+    }
   });
 
   // Game start 
@@ -297,16 +310,59 @@ io.on('connection', (socket) => {
     // Send each player their secret role.
     players.forEach((player) => {
       const roleData = roleAssignments.get(player.id);
+      
       io.to(player.id).emit('role_assigned', {
         role:        roleData.role,
         team:        roleData.team,
         specialInfo: roleData.specialInfo,
       });
+
+      if (roleData.team === 'evil') {
+        const playerSocket = io.sockets.sockets.get(player.id);
+        if (playerSocket) {
+          playerSocket.join(`${roomCode}_EVIL`);
+        }
+      }
     });
 
     io.to(roomCode).emit('game_started');
     broadcastGameState(roomCode);
-    console.log(`🎮 Game started in room ${roomCode}`);
+    console.log(`🎮 Game started in room ${roomCode}. Waiting for acknowledgements.`);
+
+  });
+
+  // Start the timer only when all 5 players have acknowledged
+  socket.on('confirm_role', ({ roomCode }) => {
+    const game = activeGames[roomCode];
+    if (!game) return;
+    try {
+      const result = game.confirmRole(socket.id);
+      broadcastGameState(roomCode);
+
+      // If everyone confirmed, the FSM moves to PRE_GAME_STRATEGY
+      if (result.readyForStrategy) {
+        console.log(`⏱️ All agents acknowledged in ${roomCode}. Starting strategy timer.`);
+        
+        setTimeout(() => {
+          const activeFsm = activeGames[roomCode];
+          if (activeFsm && activeFsm.getState().phase === 'PRE_GAME_STRATEGY') {
+            
+            // Force the FSM to move to TEAM_SELECTION
+            activeFsm.endStrategyPhase();
+            
+            // Cut the comms
+            io.to(`${roomCode}_EVIL`).emit('receive_message', { 
+              text: '[SYS] The strategy window has closed. Secure channel disconnected.', 
+              channel: 'evil' 
+            });
+
+            broadcastGameState(roomCode);
+          }
+        }, 45000);
+      }
+    } catch (err) {
+      socket.emit('game_error', err.message);
+    }
   });
 
   socket.on('join_game_dashboard', ({ roomCode, name }) => {

@@ -28,7 +28,7 @@ jobs:
       - name: Install & Check Frontend
         working-directory: ./client 
         run: |
-          npm install
+          npm ci
           npm run lint --if-present
           npm run build --if-present
 
@@ -36,7 +36,7 @@ jobs:
       - name: Install & Check Backend
         working-directory: ./server   
         run: |
-          npm install
+          npm ci
           npm run lint --if-present
           npm test
         env: 
