@@ -38,7 +38,8 @@ export default function Lobby() {
     socket.emit('join_room', {
       roomCode: roomCode,
       displayName: myName,
-      action: action
+      action: action,
+      clerkId: user?.id || null
     });
 
     socket.on('room_error', (errorMessage) => {
@@ -427,7 +428,6 @@ export default function Lobby() {
           >
             <div className="flex flex-col items-center">
               <span className="text-lg">{isReady ? 'Unready' : 'Ready Up'}</span>
-              {!isReady && <span className="text-[9px] font-bold opacity-70 mt-1">Change Team/Loadout</span>}
             </div>
           </button>
         </div>
