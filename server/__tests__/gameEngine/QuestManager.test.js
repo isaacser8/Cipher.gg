@@ -15,8 +15,15 @@ describe('QuestManager', () => {
 
     // Create a fresh QuestManager before each test
     beforeEach(() => {
+        // Force Math.random to return 0 so the leader is always mockPlayers[0] ('p1')
+        jest.spyOn(Math, 'random').mockReturnValue(0);
         questManager = new QuestManager(mockPlayers);
     }); 
+
+    afterEach(() => {
+        // Restore Math.random to its native behavior after each test
+        jest.spyOn(Math, 'random').mockRestore();
+    });
 
     // Quest initialization tests 
     test('should start quest with correct team size', () => {

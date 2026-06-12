@@ -30,6 +30,8 @@ class GameStateMachine {
 
     this.winner = null;
     this.winReason = null;
+
+    this.confirmedPlayers = new Set();
   }
 
   // Transition helpers 
@@ -49,16 +51,34 @@ class GameStateMachine {
 
   // Phase transitions 
 
-  // LOBBY → ROLE_ASSIGNMENT → TEAM_SELECTION
+  // LOBBY → ROLE_ACKNOWLEDGEMENT
   startGame() {
     this._assertState('LOBBY');
 
     this.roleAssignments = RoleAssigner.assignRoles(this.players);
     this.questManager = new QuestManager(this.players);
 
-    this._transition('ROLE_ASSIGNMENT');
+    this._transition('ROLE_ACKNOWLEDGEMENT');
+    return { state: this.currentState };
+  }
 
-    // Move straight to the first quest.
+  // Handle confirmations， trigger the strategy phase
+  confirmRole(playerId) {
+    this._assertState('ROLE_ACKNOWLEDGEMENT');
+    this.confirmedPlayers.add(playerId);
+
+    // If everyone has confirmed, move to strategy phase
+    if (this.confirmedPlayers.size === this.players.length) {
+      this._transition('PRE_GAME_STRATEGY');
+      return { state: this.currentState, readyForStrategy: true };
+    }
+    
+    return { state: this.currentState, readyForStrategy: false };
+  }
+
+  // Called by server when the timer runs out
+  endStrategyPhase() {
+    this._assertState('PRE_GAME_STRATEGY');
     return this._beginTeamSelection();
   }
 

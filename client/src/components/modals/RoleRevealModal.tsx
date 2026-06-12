@@ -4,15 +4,18 @@ import { Shield } from 'lucide-react';
 interface MyRole {
   role: string;
   team: string;
+  specialInfo?: { id: string; name: string }[]; 
 }
 
 interface Props {
   showRoleReveal: boolean;
   setShowRoleReveal: (show: boolean) => void;
   myRole: MyRole;
+  socket: any; 
+  roomCode: string;
 }
 
-export default function RoleRevealModal({ showRoleReveal, setShowRoleReveal, myRole }: Props) {
+export default function RoleRevealModal({ showRoleReveal, setShowRoleReveal, myRole, socket, roomCode }: Props) {
   return (
     <AnimatePresence>
       {showRoleReveal && myRole.role !== 'Awaiting Intel...' && (
@@ -37,7 +40,12 @@ export default function RoleRevealModal({ showRoleReveal, setShowRoleReveal, myR
                 Alignment: {myRole.team === 'good' ? 'Forces of Arthur' : 'Minions of Mordred'}
               </p>
               <button
-                onClick={() => setShowRoleReveal(false)}
+                onClick={() => {
+                  setShowRoleReveal(false);
+                  if (socket) {
+                    socket.emit('confirm_role', { roomCode });
+                  }
+                }}
                 className={`w-full py-4 rounded-xl font-black uppercase tracking-widest transition-all
                   ${myRole.team === 'good'
                     ? 'bg-emerald-500 text-emerald-950 hover:bg-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]'

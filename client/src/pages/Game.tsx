@@ -12,13 +12,14 @@ import AssassinationPanel from "../components/panels/AssassinationPanel";
 import Result from "../components/Result";
 
 // UI Layout Components
-import ChatBox from "../components/layouts/ChatBox";
-import PhaseTimer from "../components/layouts/PhaseTimer";
-import NodeDebriefModal from "../components/modals/NodeDebriefModal";
-import RoleRevealModal from "../components/modals/RoleRevealModal";
-import MissionProgressPanel from "../components/panels/MissionProgressPanel";
-import AgentRosterPanel from "../components/panels/AgentRosterPanel";
-import RoleCardPanel from "../components/panels/RoleCardPanel";
+import ChatBox from '../components/layouts/ChatBox';
+import PhaseTimer from '../components/layouts/PhaseTimer';
+import NodeDebriefModal from '../components/modals/NodeDebriefModal';
+import RoleRevealModal from '../components/modals/RoleRevealModal';
+import MissionProgressPanel from '../components/panels/MissionProgressPanel';
+import AgentRosterPanel from '../components/panels/AgentRosterPanel';
+import RoleCardPanel from '../components/panels/RoleCardPanel';
+import PrivateNotepad from '../components/panels/PrivateNotepad';
 
 // Interfaces
 interface Player {
@@ -218,65 +219,76 @@ export default function Game() {
 
   const renderActionPanel = () => {
     switch (phase) {
-      case "TEAM_SELECTION":
-        return (
-          <TeamSelectionPanel
-            players={players}
-            amILeader={amILeader}
-            currentLeader={currentLeader}
-            currentQuest={currentQuest}
-            requiredTeamSize={requiredTeamSize}
-            selectedTeam={selectedTeam}
-            togglePlayerSelection={togglePlayerSelection}
-            handleProposeTeam={handleProposeTeam}
-          />
-        );
-      case "TEAM_VOTING":
-        return (
-          <TeamVotingPanel
-            players={players}
-            proposedTeam={proposedTeam ?? []}
-            hasVoted={hasVoted}
-            handleVote={handleVote}
-            myTeamVote={sessionStorage.getItem(
-              `teamVote_${gameId}_${currentQuest}_${votesRejected}`,
-            )}
-          />
-        );
-      case "QUEST_EXECUTION":
-        return (
-          <QuestExecutionPanel
-            amIOnTeam={amIOnTeam}
-            currentQuest={currentQuest}
-            hasQuestVoted={hasQuestVoted}
-            myRole={myRole}
-            handleQuestVote={handleQuestVote}
-          />
-        );
-      case "ASSASSINATION_PHASE":
-        return (
-          <AssassinationPanel
-            myRole={myRole}
-            players={players}
-            myName={myName}
-            sniperTarget={sniperTarget}
-            setSniperTarget={setSniperTarget}
-            handleAssassination={handleAssassination}
-          />
-        );
-      case "VOTE_FAILED":
-        return (
-          <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-rose-500/20 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-2">
-            <X className="w-12 h-12 text-rose-500 mb-2" />
-            <h3 className="text-xl font-black uppercase tracking-widest text-white">
-              Deployment Rejected
-            </h3>
-            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
-              Leadership passes to the next agent...
-            </p>
-          </div>
-        );
-      case "QUEST_RESULT": {
+      case 'ROLE_ACKNOWLEDGEMENT': return (
+        <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-3">
+          <Shield className="w-10 h-10 text-purple-500/50 animate-pulse" />
+          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300">Awaiting Acknowledgements</h3>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest max-w-[250px]">
+            Waiting for all agents to acknowledge their directives before opening comms.
+          </p>
+        </div>
+      );
+
+      case 'PRE_GAME_STRATEGY': return (
+        <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-3">
+          <Shield className="w-10 h-10 text-purple-500/50 animate-pulse" />
+          <h3 className="text-sm font-bold uppercase tracking-widest text-slate-300">Strategy Phase active</h3>
+          <p className="text-[10px] text-slate-500 uppercase tracking-widest max-w-[250px]">
+            {myRole.team === 'evil' 
+              ? 'Coordinate cover identities with your teammates in the Evil channel.' 
+              : 'Secure lines open. Awaiting all agents to acknowledge directives...'}
+          </p>
+        </div>
+      );
+      
+      case 'TEAM_SELECTION': 
+        return <TeamSelectionPanel 
+          players={players} 
+          amILeader={amILeader} 
+          currentLeader={currentLeader} 
+          currentQuest={currentQuest} 
+          requiredTeamSize={requiredTeamSize} 
+          selectedTeam={selectedTeam} 
+          togglePlayerSelection={togglePlayerSelection} 
+          handleProposeTeam={handleProposeTeam} 
+        />;
+
+      case 'TEAM_VOTING': 
+        return <TeamVotingPanel 
+          players={players} 
+          proposedTeam={proposedTeam ?? []} 
+          hasVoted={hasVoted} 
+          handleVote={handleVote} 
+          myTeamVote={sessionStorage.getItem(`teamVote_${gameId}_${currentQuest}_${votesRejected}`)} 
+        />;
+
+      case 'QUEST_EXECUTION': 
+        return <QuestExecutionPanel 
+          amIOnTeam={amIOnTeam} 
+          currentQuest={currentQuest} 
+          hasQuestVoted={hasQuestVoted} 
+          myRole={myRole} 
+          handleQuestVote={handleQuestVote} 
+        />;
+
+      case 'ASSASSINATION_PHASE': 
+        return <AssassinationPanel 
+          myRole={myRole} 
+          players={players} 
+          myName={myName} 
+          sniperTarget={sniperTarget} 
+          setSniperTarget={setSniperTarget} 
+          handleAssassination={handleAssassination} 
+        />;
+
+      case 'VOTE_FAILED': return (
+        <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-rose-500/20 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-2">
+          <X className="w-12 h-12 text-rose-500 mb-2" />
+          <h3 className="text-xl font-black uppercase tracking-widest text-white">Deployment Rejected</h3>
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Leadership passes to the next agent...</p>
+        </div>
+      );
+      case 'QUEST_RESULT': {
         const lastQuest = questHistory?.slice(-1)[0];
         return (
           <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col items-center justify-center text-center gap-2">
@@ -317,17 +329,13 @@ export default function Game() {
   };
 
   const getPhaseDuration = (currentPhase: string) => {
-    switch (currentPhase) {
-      case "TEAM_SELECTION":
-        return 120;
-      case "TEAM_VOTING":
-        return 90;
-      case "QUEST_EXECUTION":
-        return 120;
-      case "ASSASSINATION_PHASE":
-        return 60;
-      default:
-        return 0;
+    switch (currentPhase) { 
+      case 'PRE_GAME_STRATEGY': return 45;
+      case 'TEAM_SELECTION': return 120; 
+      case 'TEAM_VOTING': return 90; 
+      case 'QUEST_EXECUTION': return 120; 
+      case 'ASSASSINATION_PHASE': return 60; 
+      default: return 0; 
     }
   };
 
@@ -336,16 +344,14 @@ export default function Game() {
       <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/5 rounded-full blur-[120px] pointer-events-none" />
 
-      <RoleRevealModal
-        showRoleReveal={showRoleReveal}
-        setShowRoleReveal={setShowRoleReveal}
-        myRole={myRole}
+      <RoleRevealModal 
+        showRoleReveal={showRoleReveal} 
+        setShowRoleReveal={setShowRoleReveal} 
+        myRole={myRole} 
+        socket={socket}
+        roomCode={roomCode!}
       />
-      <NodeDebriefModal
-        selectedNodeHistory={selectedNodeHistory}
-        setSelectedNodeHistory={setSelectedNodeHistory}
-        players={players}
-      />
+      <NodeDebriefModal selectedNodeHistory={selectedNodeHistory} setSelectedNodeHistory={setSelectedNodeHistory} players={players} />
 
       <header className="relative z-10 w-full max-w-[1200px] mx-auto grid grid-cols-3 items-center mb-8 pb-4 border-b border-white/5">
         <div className="flex items-center gap-3 justify-start">
@@ -387,7 +393,8 @@ export default function Game() {
         </div>
         <div className="lg:col-span-4 flex flex-col gap-6">
           <RoleCardPanel myRole={myRole} />
-          <ChatBox roomCode={roomCode!} myName={myName} />
+          <ChatBox roomCode={roomCode!} myName={myName} myRole={myRole} phase={phase} />
+          <PrivateNotepad gameId={gameId} myName={myName} />
         </div>
       </div>
 
