@@ -39,8 +39,45 @@ mongoose
     console.error("❌ Error connecting to MongoDB:", error.message);
   });
 
-// In-memory room state
+// Database Models
+const Match = require('./models/Match'); 
+const User = require('./models/User'); 
 
+// Helpers
+async function saveMatchRecord(roomCode, gameResult) {
+  const game = activeGames[roomCode];
+  const roomPlayers = rooms[roomCode] || [];
+
+  if (!game || !game.roleAssignments) return;
+
+  try {
+    const formattedPlayers = roomPlayers.map(p => {
+      const roleData = game.roleAssignments.get(p.id);
+      return {
+        userId: p.dbId || null, 
+        guestName: p.dbId ? null : p.name,
+        role: roleData ? roleData.role : 'Unknown',
+        team: roleData ? roleData.team : 'Unknown'
+      };
+    });
+
+    const newMatch = new Match({
+      roomCode,
+      winner: gameResult.winner,
+      winReason: gameResult.winReason,
+      questHistory: gameResult.questHistory || [],
+      players: formattedPlayers
+    });
+
+    await newMatch.save();
+    console.log(`💾 Match record saved for room ${roomCode}`);
+
+  } catch (error) {
+    console.error(`❌ Failed to save match record for ${roomCode}:`, error);
+  }
+}
+
+// In-memory room state
 /**
  * rooms[roomCode]        → Player[]
  * roomSettings[roomCode] → { teamSize }
@@ -124,7 +161,7 @@ io.on("connection", (socket) => {
   console.log(`⚡ Agent Connected: ${socket.id}`);
 
   // Lobby
-  socket.on("join_room", ({ roomCode, displayName, action }) => {
+  socket.on("join_room", async ({ roomCode, displayName, action, clerkId }) => {
     // Ban all spaces, empty names, and absurdly long names
     const trimmedName = (displayName || "").trim();
 
@@ -142,6 +179,25 @@ io.on("connection", (socket) => {
     }
 
     const safeName = trimmedName;
+    
+    // Fetch or create user in MongoDB
+    let mongoDbId = null;
+    if (clerkId) {
+      try {
+        let dbUser = await User.findOne({ clerkId });
+        if (!dbUser) {
+          // First time logging in: Create profile.
+          dbUser = await User.create({
+            clerkId: clerkId,
+            username: safeName
+          });
+          console.log(`👤 New agent profile created for ${safeName}`);
+        }
+        mongoDbId = dbUser._id;
+      } catch (err) {
+        console.error("❌ Error fetching/creating user:", err);
+      }
+    }
 
     // Wipe the old game state so the room can start fresh
     if (
@@ -399,6 +455,7 @@ io.on("connection", (socket) => {
             broadcastGameState(roomCode);
           }, 3000);
         } else if (result.phase === "GAME_OVER") {
+          saveMatchRecord(roomCode, result);
           io.to(roomCode).emit("game_over", result);
         }
       }
@@ -420,6 +477,7 @@ io.on("connection", (socket) => {
           const next = game.advanceAfterQuestResult();
 
           if (next.phase === "GAME_OVER") {
+            saveMatchRecord(roomCode, next);
             io.to(roomCode).emit("game_over", next);
           } else {
             io.to(roomCode).emit("quest_result_advance", next);
@@ -456,7 +514,7 @@ io.on("connection", (socket) => {
         broadcastGameState(roomCode);
       }
     } catch (err) {
-      socket.emit("game_error", err.messaged);
+      socket.emit("game_error", err.message);
     }
   });
 
@@ -466,6 +524,7 @@ io.on("connection", (socket) => {
 
     try {
       const result = game.resolveAssassination(socket.id, targetId);
+      saveMatchRecord(roomCode, result);
       io.to(roomCode).emit("game_over", result);
       broadcastGameState(roomCode);
     } catch (err) {

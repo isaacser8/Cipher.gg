@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, User as UserIcon, Lock, Plus, LogIn } from 'lucide-react';
@@ -16,19 +16,12 @@ export default function Home() {
     location.state?.redirectedFrom || sessionStorage.getItem('pendingRoomCode') || ''
   );
 
-  const hasEditedName = useRef(false);
   const clerkName =
     (isSignedIn && user
       ? user.firstName || user.fullName || user.primaryEmailAddress?.emailAddress
       : '') ?? '';
 
   const [displayName, setDisplayName] = useState(clerkName);
-
-  useEffect(() => {
-    if (!hasEditedName.current && clerkName) {
-      setDisplayName(clerkName);
-    }
-  }, [clerkName]);
 
   useEffect(() => {
     if (location.state?.redirectedFrom) {
@@ -145,7 +138,6 @@ export default function Home() {
                   placeholder="ENTER YOUR NAME"
                   value={displayName}
                   onChange={(e) => {
-                    hasEditedName.current = true; 
                     setDisplayName(e.target.value.replace(/[^a-zA-Z0-9 ]/g, ''));
                   }}
                   className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20 transition-all tracking-widest text-white"
