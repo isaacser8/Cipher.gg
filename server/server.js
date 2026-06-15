@@ -86,30 +86,12 @@ async function saveMatchRecord(roomCode, gameResult) {
  * roomSettings[roomCode] → { teamSize }
  * roomLogs[roomCode]     → string[]
  * activeGames[roomCode]  → GameStateMachine
- */
-const rooms = {
-  DEMO99: [
-    {
-      id: "bot_1",
-      name: "Alpha",
-      isHost: true,
-      isReady: true,
-      isConnected: true,
-    },
-    {
-      id: "bot_2",
-      name: "Beta",
-      isHost: false,
-      isReady: false,
-      isConnected: true,
-    },
-  ],
-};
+ 
+*/
+const rooms = {};
 const roomSettings = {};
 const roomLogs = {};
 const activeGames = {};
-
-seedDemoRooms(rooms, roomSettings, roomLogs, activeGames);
 
 // Helpers
 

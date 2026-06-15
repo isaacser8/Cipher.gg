@@ -61,7 +61,7 @@ class RoleAssigner {
     // Set teams
     players.forEach((player) => {
       const assignment = roleAssignments.get(player.id);
-      assignment.team - this.ROLE_TEAMS[assignment.role];
+      assignment.team = this.ROLE_TEAMS[assignment.role];
       assignment.specialInfo = [];
     });
 
