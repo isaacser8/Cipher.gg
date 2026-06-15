@@ -1,6 +1,6 @@
-const RoleAssigner = require('./RoleAssigner');
-const QuestManager = require('./QuestManager');
-const AssassinationManager = require('./AssassinationManager');
+const RoleAssigner = require("./RoleAssigner");
+const QuestManager = require("./QuestManager");
+const AssassinationManager = require("./AssassinationManager");
 
 /**
  * GameStateMachine
@@ -22,7 +22,7 @@ const AssassinationManager = require('./AssassinationManager');
 class GameStateMachine {
   constructor(players) {
     this.players = players;
-    this.currentState = 'LOBBY';
+    this.currentState = "LOBBY";
 
     this.roleAssignments = null;
     this.questManager = null;
@@ -34,57 +34,59 @@ class GameStateMachine {
     this.confirmedPlayers = new Set();
   }
 
-  // Transition helpers 
+  // Transition helpers
 
   _assertState(expected) {
     if (this.currentState !== expected) {
       throw new Error(
-        `Invalid action: expected state "${expected}" but current state is "${this.currentState}"`
+        `Invalid action: expected state "${expected}" but current state is "${this.currentState}"`,
       );
     }
   }
 
   _transition(newState) {
-    console.log(`[FSM] ${this.currentState} → ${newState}`);
+    if (process.env.NODE.ENV !== "production") {
+      console.log(`[FSM] ${this.currentState} → ${newState}`);
+    }
     this.currentState = newState;
   }
 
-  // Phase transitions 
+  // Phase transitions
 
   // LOBBY → ROLE_ACKNOWLEDGEMENT
   startGame() {
-    this._assertState('LOBBY');
+    this._assertState("LOBBY");
 
     this.roleAssignments = RoleAssigner.assignRoles(this.players);
     this.questManager = new QuestManager(this.players);
 
-    this._transition('ROLE_ACKNOWLEDGEMENT');
+    this._transition("ROLE_ACKNOWLEDGEMENT");
     return { state: this.currentState };
   }
 
   // Handle confirmations， trigger the strategy phase
   confirmRole(playerId) {
-    this._assertState('ROLE_ACKNOWLEDGEMENT');
+    this._assertState("ROLE_ACKNOWLEDGEMENT");
     this.confirmedPlayers.add(playerId);
 
     // If everyone has confirmed, move to strategy phase
     if (this.confirmedPlayers.size === this.players.length) {
-      this._transition('PRE_GAME_STRATEGY');
+      this._transition("PRE_GAME_STRATEGY");
       return { state: this.currentState, readyForStrategy: true };
     }
-    
+
     return { state: this.currentState, readyForStrategy: false };
   }
 
   // Called by server when the timer runs out
   endStrategyPhase() {
-    this._assertState('PRE_GAME_STRATEGY');
+    this._assertState("PRE_GAME_STRATEGY");
     return this._beginTeamSelection();
   }
 
-  // → TEAM_SELECTION 
+  // → TEAM_SELECTION
   _beginTeamSelection() {
-    this._transition('TEAM_SELECTION');
+    this._transition("TEAM_SELECTION");
     const questState = this.questManager.getGameState();
     return {
       state: this.currentState,
@@ -100,62 +102,64 @@ class GameStateMachine {
    * @param {string[]} proposedTeamIds
    */
   proposeTeam(leaderId, proposedTeamIds) {
-    this._assertState('TEAM_SELECTION');
+    this._assertState("TEAM_SELECTION");
     const questState = this.questManager.getGameState();
 
     if (questState.currentLeader?.id !== leaderId) {
-      throw new Error('Only the current leader can propose a team.');
+      throw new Error("Only the current leader can propose a team.");
     }
 
     this.questManager.proposeTeam(leaderId, proposedTeamIds);
-    this._transition('TEAM_VOTING');
+    this._transition("TEAM_VOTING");
 
     return { state: this.currentState, proposedTeam: proposedTeamIds };
   }
 
   castVote(playerId, vote) {
-    this._assertState('TEAM_VOTING');
-    
+    this._assertState("TEAM_VOTING");
+
     const voteStatus = this.questManager.castTeamVote(playerId, vote);
-    if (!voteStatus.allVoted) return { state: this.currentState, resolved: false };
+    if (!voteStatus.allVoted)
+      return { state: this.currentState, resolved: false };
 
     const voteResult = this.questManager.resolveTeamVotes();
 
     if (voteResult.approved) {
-      this._transition('QUEST_EXECUTION');
+      this._transition("QUEST_EXECUTION");
     } else if (voteResult.evilWins) {
-      this._transition('GAME_OVER');
-      this.winner = 'evil';
-      this.winReason = 'Five consecutive teams rejected.';
+      this._transition("GAME_OVER");
+      this.winner = "evil";
+      this.winReason = "Five consecutive teams rejected.";
       return this.getState();
     } else {
-      this._transition('VOTE_FAILED');
+      this._transition("VOTE_FAILED");
     }
 
     return { state: this.currentState, resolved: true, ...voteResult };
   }
 
   submitQuestAction(playerId, vote) {
-    this._assertState('QUEST_EXECUTION');
+    this._assertState("QUEST_EXECUTION");
 
     const actionStatus = this.questManager.castQuestVote(playerId, vote);
-    if (!actionStatus.allVoted) return { state: this.currentState, resolved: false };
+    if (!actionStatus.allVoted)
+      return { state: this.currentState, resolved: false };
 
     const actionResult = this.questManager.resolveQuestVotes();
-    this._transition('QUEST_RESULT');
+    this._transition("QUEST_RESULT");
     return { state: this.currentState, resolved: true, ...actionResult };
   }
 
   advanceAfterQuestResult() {
-    this._assertState('QUEST_RESULT');
+    this._assertState("QUEST_RESULT");
 
     const { questsWon } = this.questManager.getGameState();
 
     if (questsWon.good >= 3) {
-      this._transition('ASSASSINATION_PHASE');
+      this._transition("ASSASSINATION_PHASE");
       this.assassinationManager = new AssassinationManager(
         this.players,
-        this.roleAssignments
+        this.roleAssignments,
       );
       return {
         state: this.currentState,
@@ -165,19 +169,19 @@ class GameStateMachine {
     }
 
     if (questsWon.evil >= 3) {
-      this._transition('GAME_OVER');
-      this.winner = 'evil';
-      this.winReason = 'Evil sabotaged 3 quests.';
+      this._transition("GAME_OVER");
+      this.winner = "evil";
+      this.winReason = "Evil sabotaged 3 quests.";
       return this.getState();
     }
 
-    this.questManager.nextQuest(); 
-    
+    this.questManager.nextQuest();
+
     return this._beginTeamSelection();
   }
 
   advanceAfterFailedVote() {
-    this._assertState('VOTE_FAILED');
+    this._assertState("VOTE_FAILED");
     return this._beginTeamSelection();
   }
 
@@ -189,12 +193,12 @@ class GameStateMachine {
    * @param {string} targetId
    */
   resolveAssassination(assassinId, targetId) {
-    this._assertState('ASSASSINATION_PHASE');
+    this._assertState("ASSASSINATION_PHASE");
 
     this.assassinationManager.selectTarget(assassinId, targetId);
     const result = this.assassinationManager.resolveAssassination();
 
-    this._transition('GAME_OVER');
+    this._transition("GAME_OVER");
     this.winner = result.winner;
     this.winReason = result.reason;
 

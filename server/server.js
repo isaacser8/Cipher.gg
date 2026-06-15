@@ -6,18 +6,29 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const GameStateMachine = require("./gameEngine/GameStateMachine");
+const { seedDemoRooms, DEMO_ROOM_CODES } = require("./demoSeeder");
 
 // App & server setup
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
+/** @type {any[]} */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://cipher-gg.vercel.app",
+];
+
+if (process.env.ALLOW_PREVIEW_ORIGINS === "true") {
+  allowedOrigins.push(/\.vercel\.app$/);
+}
+
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json());
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "https://cipher-gg.vercel.app"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
@@ -28,6 +39,9 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ Successfully connected to MongoDB Atlas (CipherGG-DB)");
+
+    seedDemoRooms(rooms, roomSettings, roomLogs, activeGames);
+
     if (require.main === module) {
       // Only start server if this file is run directly, not imported for tests
       server.listen(PORT, () => {
@@ -40,8 +54,8 @@ mongoose
   });
 
 // Database Models
-const Match = require('./models/Match'); 
-const User = require('./models/User'); 
+const Match = require("./models/Match");
+const User = require("./models/User");
 
 // Helpers
 async function saveMatchRecord(roomCode, gameResult) {
@@ -51,13 +65,13 @@ async function saveMatchRecord(roomCode, gameResult) {
   if (!game || !game.roleAssignments) return;
 
   try {
-    const formattedPlayers = roomPlayers.map(p => {
+    const formattedPlayers = roomPlayers.map((p) => {
       const roleData = game.roleAssignments.get(p.id);
       return {
-        userId: p.dbId || null, 
+        userId: p.dbId || null,
         guestName: p.dbId ? null : p.name,
-        role: roleData ? roleData.role : 'Unknown',
-        team: roleData ? roleData.team : 'Unknown'
+        role: roleData ? roleData.role : "Unknown",
+        team: roleData ? roleData.team : "Unknown",
       };
     });
 
@@ -66,12 +80,11 @@ async function saveMatchRecord(roomCode, gameResult) {
       winner: gameResult.winner,
       winReason: gameResult.winReason,
       questHistory: gameResult.questHistory || [],
-      players: formattedPlayers
+      players: formattedPlayers,
     });
 
     await newMatch.save();
     console.log(`💾 Match record saved for room ${roomCode}`);
-
   } catch (error) {
     console.error(`❌ Failed to save match record for ${roomCode}:`, error);
   }
@@ -83,25 +96,9 @@ async function saveMatchRecord(roomCode, gameResult) {
  * roomSettings[roomCode] → { teamSize }
  * roomLogs[roomCode]     → string[]
  * activeGames[roomCode]  → GameStateMachine
- */
-const rooms = {
-  DEMO99: [
-    {
-      id: "bot_1",
-      name: "Alpha",
-      isHost: true,
-      isReady: true,
-      isConnected: true,
-    },
-    {
-      id: "bot_2",
-      name: "Beta",
-      isHost: false,
-      isReady: false,
-      isConnected: true,
-    },
-  ],
-};
+ 
+*/
+const rooms = {};
 const roomSettings = {};
 const roomLogs = {};
 const activeGames = {};
@@ -179,7 +176,7 @@ io.on("connection", (socket) => {
     }
 
     const safeName = trimmedName;
-    
+
     // Fetch or create user in MongoDB
     let mongoDbId = null;
     if (clerkId) {
@@ -189,7 +186,7 @@ io.on("connection", (socket) => {
           // First time logging in: Create profile.
           dbUser = await User.create({
             clerkId: clerkId,
-            username: safeName
+            username: safeName,
           });
           console.log(`👤 New agent profile created for ${safeName}`);
         }
@@ -202,7 +199,8 @@ io.on("connection", (socket) => {
     // Wipe the old game state so the room can start fresh
     if (
       activeGames[roomCode] &&
-      activeGames[roomCode].getState().phase === "GAME_OVER"
+      activeGames[roomCode].getState().phase === "GAME_OVER" &&
+      !DEMO_ROOM_CODES.has(roomCode)
     ) {
       delete activeGames[roomCode];
       // Force everyone currently in the room back to standby
@@ -218,7 +216,11 @@ io.on("connection", (socket) => {
 
     // Prevent joining mid-game
     const isExistingPlayer = rooms[roomCode]?.some((p) => p.name === safeName);
-    if (activeGames[roomCode] && !isExistingPlayer) {
+    if (
+      activeGames[roomCode] &&
+      !isExistingPlayer &&
+      !DEMO_ROOM_CODES.has(roomCode)
+    ) {
       return socket.emit(
         "room_error",
         "ACCESS DENIED: The game has already started!",
@@ -295,6 +297,7 @@ io.on("connection", (socket) => {
 
     // Mid-game reconnection sync
     if (activeGames[roomCode]) {
+      socket.emit("game_started");
       const game = activeGames[roomCode];
       const fsm = game.getState();
       const player = rooms[roomCode].find((p) => p.name === safeName);
@@ -362,25 +365,30 @@ io.on("connection", (socket) => {
     }
   });
 
-  socket.on('send_message', ({ roomCode, sender, message, channel }) => {
-    const timestamp = new Date().toLocaleTimeString('en-US', {
-      hour12: false, hour: '2-digit', minute: '2-digit',
+  socket.on("send_message", ({ roomCode, sender, message, channel }) => {
+    const timestamp = new Date().toLocaleTimeString("en-US", {
+      hour12: false,
+      hour: "2-digit",
+      minute: "2-digit",
     });
-    
-    if (channel === 'evil') {
+
+    if (channel === "evil") {
       const game = activeGames[roomCode];
-      if (game && game.getState().phase !== 'PRE_GAME_STRATEGY') {
-        return socket.emit('game_error', 'ACCESS DENIED: Secure comms channel is locked.');
+      if (game && game.getState().phase !== "PRE_GAME_STRATEGY") {
+        return socket.emit(
+          "game_error",
+          "ACCESS DENIED: Secure comms channel is locked.",
+        );
       }
 
       const formatted = `[${timestamp}] [EVIL] ${sender}: ${message}`;
       // Send ONLY to the evil room
-      io.to(`${roomCode}_EVIL`).emit('receive_message', { text: formatted });
+      io.to(`${roomCode}_EVIL`).emit("receive_message", { text: formatted });
     } else {
       // Normal global message
       const formatted = `[${timestamp}] ${sender}: ${message}`;
       roomLogs[roomCode]?.push(formatted);
-      io.to(roomCode).emit('receive_message', { text: formatted });
+      io.to(roomCode).emit("receive_message", { text: formatted });
     }
   });
 
@@ -403,14 +411,14 @@ io.on("connection", (socket) => {
     // Send each player their secret role.
     players.forEach((player) => {
       const roleData = roleAssignments.get(player.id);
-      
-      io.to(player.id).emit('role_assigned', {
-        role:        roleData.role,
-        team:        roleData.team,
+
+      io.to(player.id).emit("role_assigned", {
+        role: roleData.role,
+        team: roleData.team,
         specialInfo: roleData.specialInfo,
       });
 
-      if (roleData.team === 'evil') {
+      if (roleData.team === "evil") {
         const playerSocket = io.sockets.sockets.get(player.id);
         if (playerSocket) {
           playerSocket.join(`${roomCode}_EVIL`);
@@ -420,12 +428,13 @@ io.on("connection", (socket) => {
 
     io.to(roomCode).emit("game_started");
     broadcastGameState(roomCode);
-    console.log(`🎮 Game started in room ${roomCode}. Waiting for acknowledgements.`);
-
+    console.log(
+      `🎮 Game started in room ${roomCode}. Waiting for acknowledgements.`,
+    );
   });
 
   // Start the timer only when all 5 players have acknowledged
-  socket.on('confirm_role', ({ roomCode }) => {
+  socket.on("confirm_role", ({ roomCode }) => {
     const game = activeGames[roomCode];
     if (!game) return;
     try {
@@ -434,19 +443,20 @@ io.on("connection", (socket) => {
 
       // If everyone confirmed, the FSM moves to PRE_GAME_STRATEGY
       if (result.readyForStrategy) {
-        console.log(`⏱️ All agents acknowledged in ${roomCode}. Starting strategy timer.`);
-        
+        console.log(
+          `⏱️ All agents acknowledged in ${roomCode}. Starting strategy timer.`,
+        );
+
         setTimeout(() => {
           const activeFsm = activeGames[roomCode];
-          if (activeFsm && activeFsm.getState().phase === 'PRE_GAME_STRATEGY') {
-            
+          if (activeFsm && activeFsm.getState().phase === "PRE_GAME_STRATEGY") {
             // Force the FSM to move to TEAM_SELECTION
             activeFsm.endStrategyPhase();
-            
+
             // Cut the comms
-            io.to(`${roomCode}_EVIL`).emit('receive_message', { 
-              text: '[SYS] The strategy window has closed. Secure channel disconnected.', 
-              channel: 'evil' 
+            io.to(`${roomCode}_EVIL`).emit("receive_message", {
+              text: "[SYS] The strategy window has closed. Secure channel disconnected.",
+              channel: "evil",
             });
 
             broadcastGameState(roomCode);
@@ -454,7 +464,7 @@ io.on("connection", (socket) => {
         }, 45000);
       }
     } catch (err) {
-      socket.emit('game_error', err.message);
+      socket.emit("game_error", err.message);
     }
   });
 
