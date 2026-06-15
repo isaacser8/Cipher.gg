@@ -159,7 +159,7 @@ function createDemoRoom(
     advanceFn(game, players); // advance to specific phase
 
     activeGames[code] = game;
-    console.log("🌱 Seeded ${code} -> ${game.getState().phase}");
+    console.log(`🌱 Seeded ${code} -> ${game.getState().phase}`);
   } catch (err) {
     console.error("❌ Failed to seed ${code}:`, err.message");
   }
@@ -251,8 +251,11 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     "DEMOS7",
     (game, players) => {
       runThreeSuccessfulQuests(game, players);
+      /*
       const assassin = game.getState().assassin;
       game.resolveAssassination(assassin.id, "demo_1");
+      */
+      console.log("DEMOS7 state: ", JSON.stringify(game.getState()));
     },
     ...args,
   );
