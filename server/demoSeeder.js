@@ -177,7 +177,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
 
   // DEMOS1: TEAM_SELECTION - leader picks a team
   createDemoRoom("DEMOS1", (game, players) => {}, ...args);
-  console.log("   DEMOS1 → TEAM_SELECTION        (join as any demo name)");
 
   // DEMOS2: TEAM_VOTING - team proposed, players vote approve/reject
   createDemoRoom(
@@ -188,7 +187,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     },
     ...args,
   );
-  console.log("   DEMOS2 → TEAM_VOTING           (vote approve or reject)");
 
   // DEMOS3: QUEST_EXECUTION - team approved, memebers submit success/fail
   createDemoRoom(
@@ -200,9 +198,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     },
     ...args,
   );
-  console.log(
-    '   DEMOS3 → QUEST_EXECUTION       (join as "Merlin" or "Assassin" to be on team)',
-  );
 
   // DEMOS4: ASSASSINATION_PHASE - good won 3 quests, assassin picks Merlin
   createDemoRoom(
@@ -211,9 +206,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
       runThreeSuccessfulQuests(game, players);
     },
     ...args,
-  );
-  console.log(
-    '   DEMOS4 → ASSASSINATION_PHASE   (join as "Assassin" to pick Merlin)',
   );
 
   // DEMOS5: GAME_OVER - good wins (assassin picks wrong person)
@@ -225,7 +217,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     },
     ...args,
   );
-  console.log("   DEMOS5 → GAME_OVER good wins   (wrong assassination)");
 
   // DEMOS6: GAME_OVER - evil wins by failing 3 quests
   createDemoRoom(
@@ -246,7 +237,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     },
     ...args,
   );
-  console.log("   DEMOS6 → GAME_OVER evil wins   (3 failed quests)");
 
   // DEMOS7: GAME_OVER - evil wins by correctly assassinating Merlin
   createDemoRoom(
@@ -257,7 +247,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     },
     ...args,
   );
-  console.log("   DEMOS7 → GAME_OVER evil wins   (Merlin assassinated)");
 
   // DEMOS8: GAME_OVER - evil wins by 5 consecutive rejected proposals
   createDemoRoom(
@@ -272,8 +261,19 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     },
     ...args,
   );
-  console.log("   DEMOS8 → GAME_OVER evil wins   (5 rejected proposals)");
 
+  console.log("   DEMOS1 → TEAM_SELECTION        (join as any demo name)");
+  console.log("   DEMOS2 → TEAM_VOTING           (vote approve or reject)");
+  console.log(
+    '   DEMOS3 → QUEST_EXECUTION       (join as "Merlin" or "Assassin" to be on team)',
+  );
+  console.log(
+    '   DEMOS4 → ASSASSINATION_PHASE   (join as "Assassin" to pick Merlin)',
+  );
+  console.log("   DEMOS5 → GAME_OVER good wins   (wrong assassination)");
+  console.log("   DEMOS6 → GAME_OVER evil wins   (3 failed quests)");
+  console.log("   DEMOS7 → GAME_OVER evil wins   (Merlin assassinated)");
+  console.log("   DEMOS8 → GAME_OVER evil wins   (5 rejected proposals)");
   console.log("✅ All demo rooms ready!");
 }
 
