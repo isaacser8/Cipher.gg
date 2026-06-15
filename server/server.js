@@ -21,7 +21,7 @@ const io = new Server(server, {
     origin: [
       "http://localhost:5173",
       "https://cipher-gg.vercel.app",
-      "https://forked-cipher-gg.vercel.app/",
+      /\.vercel\.app$/,
     ],
     methods: ["GET", "POST"],
   },
