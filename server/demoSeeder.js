@@ -101,8 +101,9 @@ function forceDemoRoles(game, players) {
  * @param {GameStateMachine} game
  * @param {Array<Object>} players
  */
-function advanceToTeamSelection(game, players) {
+function setupDemoGame(game, players) {
   game.startGame();
+  forceDemoRoles(game, players);
   players.forEach((p) => game.confirmRole(p.id));
   game.endStrategyPhase();
 }
@@ -159,7 +160,7 @@ function createDemoRoom(
     roomSettings[code] = { teamSize: 5 };
     roomLogs[code] = [];
 
-    advanceToTeamSelection(game, players);
+    setupDemoGame(game, players);
 
     advanceFn(game, players); // advance to specific phase
 
