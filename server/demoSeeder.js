@@ -161,7 +161,7 @@ function createDemoRoom(
     activeGames[code] = game;
     console.log(`🌱 Seeded ${code} -> ${game.getState().phase}`);
   } catch (err) {
-    console.error("❌ Failed to seed ${code}:`, err.message");
+    console.error(`❌ Failed to seed ${code}:`, err.message);
   }
 }
 
