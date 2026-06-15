@@ -215,8 +215,11 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     "DEMOS5",
     (game, players) => {
       runThreeSuccessfulQuests(game, players);
+      /*
       const state = game.getState();
       game.resolveAssassination(state.assassin.id, "demo_4");
+      */
+      console.log("DEMOS5 state: ", JSON.stringify(game.getState()));
     },
     ...args,
   );
