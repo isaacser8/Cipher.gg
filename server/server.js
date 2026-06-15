@@ -11,18 +11,24 @@ const { seedDemoRooms, DEMO_ROOM_CODES } = require("./demoSeeder");
 // App & server setup
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
+/** @type {any[]} */
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://cipher-gg.vercel.app",
+];
+
+if (process.env.ALLOW_PREVIEW_ORIGINS === "true") {
+  allowedOrigins.push(/\.vercel\.app$/);
+}
+
+app.use(cors({ origin: allowedOrigins }));
+app.use(express.json());
 const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:5173",
-      "https://cipher-gg.vercel.app",
-      /\.vercel\.app$/,
-    ],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });
@@ -154,9 +160,6 @@ io.on("connection", (socket) => {
   // Lobby
   socket.on("join_room", async ({ roomCode, displayName, action, clerkId }) => {
     // Ban all spaces, empty names, and absurdly long names
-    console.log(
-      `join_room: code=${roomCode} name=${displayName} action=${action}`,
-    );
     const trimmedName = (displayName || "").trim();
 
     if (!trimmedName || trimmedName.length < 1) {
