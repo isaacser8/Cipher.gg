@@ -29,6 +29,9 @@ mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
     console.log("✅ Successfully connected to MongoDB Atlas (CipherGG-DB)");
+
+    seedDemoRooms(rooms, roomSettings, roomLogs, activeGames);
+
     if (require.main === module) {
       // Only start server if this file is run directly, not imported for tests
       server.listen(PORT, () => {
