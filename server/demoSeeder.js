@@ -262,6 +262,7 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     ...args,
   );
 
+  console.log("✅ All demo rooms ready!");
   console.log("   DEMOS1 → TEAM_SELECTION        (join as any demo name)");
   console.log("   DEMOS2 → TEAM_VOTING           (vote approve or reject)");
   console.log(
@@ -274,7 +275,6 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
   console.log("   DEMOS6 → GAME_OVER evil wins   (3 failed quests)");
   console.log("   DEMOS7 → GAME_OVER evil wins   (Merlin assassinated)");
   console.log("   DEMOS8 → GAME_OVER evil wins   (5 rejected proposals)");
-  console.log("✅ All demo rooms ready!");
 }
 
 module.exports = { seedDemoRooms, DEMO_ROOM_CODES };
