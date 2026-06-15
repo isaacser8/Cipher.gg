@@ -154,6 +154,9 @@ io.on("connection", (socket) => {
   // Lobby
   socket.on("join_room", async ({ roomCode, displayName, action, clerkId }) => {
     // Ban all spaces, empty names, and absurdly long names
+    console.log(
+      `join_room: code=${roomCode} name=${displayName} action=${action}`,
+    );
     const trimmedName = (displayName || "").trim();
 
     if (!trimmedName || trimmedName.length < 1) {
