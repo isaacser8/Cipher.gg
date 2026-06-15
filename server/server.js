@@ -291,6 +291,7 @@ io.on("connection", (socket) => {
 
     // Mid-game reconnection sync
     if (activeGames[roomCode]) {
+      socket.emit("game_started");
       const game = activeGames[roomCode];
       const fsm = game.getState();
       const player = rooms[roomCode].find((p) => p.name === safeName);
