@@ -1,5 +1,6 @@
 const GameStateMachine = require("./gameEngine/GameStateMachine");
 const RoleAssigner = require("./gameEngine/RoleAssigner");
+const AssassinationManager = require("./gameEngine/AssassinationManager");
 
 /**
  * Set of all demo room codes
@@ -89,6 +90,10 @@ function forceDemoRoles(game, players) {
   RoleAssigner.fillDetails(players, roleAssignments);
 
   game.roleAssignments = roleAssignments;
+  game.assassinationManager = new AssassinationManager(
+    players,
+    game.roleAssignments,
+  );
 }
 
 /**
