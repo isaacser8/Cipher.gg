@@ -215,11 +215,7 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     "DEMOS5",
     (game, players) => {
       runThreeSuccessfulQuests(game, players);
-      /*
-      const state = game.getState();
-      game.resolveAssassination(state.assassin.id, "demo_4");
-      */
-      console.log("DEMOS5 state: ", JSON.stringify(game.getState()));
+      game.resolveAssassination("demo_2", "demo_4");
     },
     ...args,
   );
@@ -251,11 +247,7 @@ function seedDemoRooms(rooms, roomSettings, roomLogs, activeGames) {
     "DEMOS7",
     (game, players) => {
       runThreeSuccessfulQuests(game, players);
-      /*
-      const assassin = game.getState().assassin;
-      game.resolveAssassination(assassin.id, "demo_1");
-      */
-      console.log("DEMOS7 state: ", JSON.stringify(game.getState()));
+      game.resolveAssassination("demo_2", "demo_1");
     },
     ...args,
   );
