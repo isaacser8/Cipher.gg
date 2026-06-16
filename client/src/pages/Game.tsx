@@ -164,20 +164,28 @@ export default function Game() {
     socket.emit("propose_team", { roomCode, proposedTeamIds: selectedTeam });
   };
 
-  const handleVote = (vote: "approve" | "reject") => {
-    if (!socket || hasVoted) return;
-    socket.emit("submit_vote", { roomCode, vote });
-    sessionStorage.setItem(
-      `teamVote_${gameId}_${currentQuest}_${votesRejected}`,
-      vote,
-    );
-  };
+  const handleVote = useCallback(
+    (vote: "approve" | "reject") => {
+      if (!socket || hasVoted) return;
 
-  const handleQuestVote = (vote: "success" | "fail") => {
-    if (!socket || hasQuestVoted) return;
-    socket.emit("submit_quest_vote", { roomCode, vote });
-    sessionStorage.setItem(`questVote_${gameId}_${currentQuest}`, vote);
-  };
+      socket.emit("submit_vote", { roomCode, vote });
+      sessionStorage.setItem(
+        `teamVote_${gameId}_${currentQuest}_${votesRejected}`,
+        vote,
+      );
+    },
+    [socket, hasVoted, roomCode, gameId, currentQuest, votesRejected],
+  );
+
+  const handleQuestVote = useCallback(
+    (vote: "success" | "fail") => {
+      if (!socket || hasQuestVoted) return;
+
+      socket.emit("submit_quest_vote", { roomCode, vote });
+      sessionStorage.setItem(`questVote_${gameId}_${currentQuest}`, vote);
+    },
+    [socket, hasQuestVoted, roomCode, gameId, currentQuest],
+  );
 
   const handleAssassination = () => {
     if (!socket || !sniperTarget) return;
@@ -368,6 +376,7 @@ export default function Game() {
         </div>
         <div className="flex justify-end items-center">
           <PhaseTimer
+            key={`${gameId}_${phase}_${currentQuest}_${votesRejected}`}
             phase={phase}
             initialSeconds={getPhaseDuration(phase)}
             currentQuest={currentQuest}

@@ -1,5 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield } from 'lucide-react';
+import type { Socket } from "socket.io-client";
 
 interface MyRole {
   role: string;
@@ -11,7 +12,7 @@ interface Props {
   showRoleReveal: boolean;
   setShowRoleReveal: (show: boolean) => void;
   myRole: MyRole;
-  socket: any; 
+  socket: Socket | null;
   roomCode: string;
 }
 

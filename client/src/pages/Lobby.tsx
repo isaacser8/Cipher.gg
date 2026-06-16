@@ -20,6 +20,7 @@ export default function Lobby() {
   const { socket } = useSocket(); 
   
   const resolvedName = user?.fullName || user?.primaryEmailAddress?.emailAddress || location.state?.displayName;
+  const clerkId = user?.id || null;
   const myName = resolvedName || 'Unknown Agent';
   const action = location.state?.action || 'join';
 
@@ -39,7 +40,7 @@ export default function Lobby() {
       roomCode: roomCode,
       displayName: myName,
       action: action,
-      clerkId: user?.id || null
+      clerkId,
     });
 
     socket.on('room_error', (errorMessage) => {
@@ -106,7 +107,7 @@ export default function Lobby() {
       socket.off('disconnect');
       socket.off('game_started');
     };
-  }, [socket, isLoaded, resolvedName, myName, navigate, roomCode, action]);
+  }, [socket, isLoaded, resolvedName, myName, navigate, roomCode, action, clerkId]);
 
   useEffect(() => {
     if (socket) {
