@@ -1,160 +1,184 @@
 process.env.NODE_ENV = 'test'; 
 require("dotenv").config(); 
 
-const { io } = require('socket.io-client');
 const mongoose = require('mongoose');
 const Match = require('../../models/Match'); 
-const { testServer } = require('../../server'); 
+const User = require('../../models/User');
+const { testServer, dbReady, io } = require('../../server'); 
+
+const {
+  disconnectSockets,
+} = require('../../testHelpers/socketTestUtils');
+
+const {
+  runEvilSabotageGame,
+  runGoodWinThenSuccessfulAssassinationGame,
+} = require('../../testHelpers/gameFlowHelpers');
 
 const PORT = 5006; 
-const ROOM_CODE = 'TEST_LOOP';
 
 // In case MongoDB is slow to connect
-jest.setTimeout(40000);
+jest.setTimeout(90000);
 
-// Helper to wrap socket events in Promises 
-const waitForEvent = (socket, eventName, timeoutMs = 6000) => {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
-      reject(new Error(`Timeout: Waited ${timeoutMs}ms for event '${eventName}' but it never fired.`));
-    }, timeoutMs);
+describe('Full Game Loop Integration & Database Verification', () => {
+  beforeAll(async () => {
+    await dbReady;
 
-    socket.once(eventName, (data) => {
-      clearTimeout(timer);
-      resolve(data);
-    });
-  });
-};
-
-describe('Full Game Loop Integration (Lobby to Endgame)', () => {
-  let sockets = [];
-  const testAgents = ['Alpha', 'Beta', 'Gamma', 'Delta', 'Echo'];
-  
-  const teamSizes = { 1: 2, 2: 3, 3: 2, 4: 3, 5: 3 };
-
-  beforeAll((done) => {
-    testServer.listen(PORT, async () => {
-      sockets = testAgents.map(() => io(`http://localhost:${PORT}`));
-      
-      // Catch server logic errors
-      sockets.forEach(s => {
-        s.on('game_error', (err) => console.error(`[SERVER ERROR for ${s.id}]:`, err));
+    if (!testServer.listening) {
+      await new Promise((resolve) => {
+        testServer.listen(PORT, resolve);
       });
-
-      await Promise.all(sockets.map(s => new Promise(res => s.on('connect', res))));
-      done();
-    });
-  }, 15000);
+    }
+  }, 30000);
 
   afterAll(async () => {
-    sockets.forEach(s => s.disconnect());
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await Match.deleteMany({ roomCode: { $regex: '^TEST_LOOP_' } });
+    await Match.deleteMany({ roomCode: { $regex: '^TEST_ASSASSINATION_' } });
+
+    await User.deleteMany({ clerkId: { $regex: '^test_full_loop_' } });
+    await User.deleteMany({ clerkId: { $regex: '^test_assassination_' } });
+
+    io.close();
+
+    if (testServer.listening) {
+      await new Promise((resolve) => testServer.close(resolve));
+    }
+    
     await mongoose.disconnect();
-    testServer.close()
   });
 
-  test('Should complete a full game loop where Evil wins by sabotaging 3 quests', async () => {
-    try {
-      
-      console.log('📍 PHASE 1: Connecting Host & Guests...');
-      sockets[0].emit('join_room', { roomCode: ROOM_CODE, displayName: testAgents[0], action: 'host' });
-      await waitForEvent(sockets[0], 'roster_update');
+  test.each([5, 7, 10])(
+    'completes evil-win full loop and persists Match/User stats for %i players',
+    async (playerCount) => {
+      const roomCode = `TEST_LOOP_${playerCount}_${Date.now()}`;
 
-      const guestJoinPromises = sockets.slice(1).map(async (socket, idx) => {
-        socket.emit('join_room', { roomCode: ROOM_CODE, displayName: testAgents[idx + 1], action: 'join' });
-        return waitForEvent(socket, 'roster_update');
+      await Match.deleteMany({ roomCode });
+      await User.deleteMany({
+        clerkId: { $regex: `^test_full_loop_${playerCount}_` },
       });
-      await Promise.all(guestJoinPromises);
 
-      console.log('📍 PHASE 1.5: Agents Ready Up...');
-      sockets.forEach((socket) => {
-        socket.emit('status_update', {
-          roomCode: ROOM_CODE,
-          isReady: true,
+      const { finalPayload, sockets, agents } = await runEvilSabotageGame({
+        playerCount,
+        port: PORT,
+        roomCode,
+      });
+
+      try {
+        const savedMatch = await Match.findOne({ roomCode });
+
+        expect(savedMatch).toBeTruthy();
+        expect(savedMatch.winner).toBe('evil');
+        expect(savedMatch.players).toHaveLength(playerCount);
+        expect(savedMatch.questHistory).toHaveLength(3);
+
+        expect(finalPayload.phase).toBe('GAME_OVER');
+        expect(finalPayload.winner).toBe('evil');
+        expect(finalPayload.questHistory).toHaveLength(3);
+        expect(finalPayload.winReason).toBeTruthy();
+
+        const users = await User.find({
+          clerkId: { $in: agents.map((agent) => agent.clerkId) },
         });
+
+        savedMatch.players.forEach((player) => {
+          expect(player.role).toBeTruthy();
+          expect(player.team).toMatch(/good|evil/);
+        });
+
+        expect(users).toHaveLength(playerCount);
+
+        users.forEach((user) => {
+          expect(user.stats.matchesPlayed).toBe(1);
+        });
+
+        const evilPlayers = savedMatch.players.filter((player) => player.team === 'evil');
+        const evilUserIds = evilPlayers
+          .filter((player) => player.userId)
+          .map((player) => player.userId.toString());
+
+        const evilUsers = users.filter((user) => evilUserIds.includes(user._id.toString()));
+
+        evilUsers.forEach((user) => {
+          expect(user.stats.winsAsEvil).toBe(1);
+        });
+
+        const goodPlayers = savedMatch.players.filter((player) => player.team === 'good');
+        const goodUserIds = goodPlayers
+          .filter((player) => player.userId)
+          .map((player) => player.userId.toString());
+
+        const goodUsers = users.filter((user) => goodUserIds.includes(user._id.toString()));
+
+        goodUsers.forEach((user) => {
+          expect(user.stats.winsAsEvil).toBe(0);
+        });
+
+      } finally {
+        disconnectSockets(sockets);
+        await new Promise((resolve) => setTimeout(resolve, 3500));
+      }
+    },
+    60000,
+  );
+
+  test(
+    'completes Good-win path, resolves successful assassination, and persists Assassin stats',
+    async () => {
+      const playerCount = 5;
+      const roomCode = `TEST_ASSASSINATION_${playerCount}_${Date.now()}`;
+
+      await Match.deleteMany({ roomCode });
+      await User.deleteMany({
+        clerkId: { $regex: '^test_assassination_' },
       });
-      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      console.log('📍 PHASE 2: Starting Game...');
-      const startPromises = sockets.map(s => waitForEvent(s, 'game_started'));
-      const stateUpdatePromises = sockets.map(s => waitForEvent(s, 'game_state_update'));
-      
-      sockets[0].emit('start_game', { roomCode: ROOM_CODE });
-      
-      await Promise.all(startPromises);
-      let gameState = (await Promise.all(stateUpdatePromises))[0];
+      const { finalPayload, sockets, agents, assassin } =
+        await runGoodWinThenSuccessfulAssassinationGame({
+          playerCount,
+          port: PORT,
+          roomCode,
+        });
 
-      console.log('📍 PHASE 2.5: Agents Acknowledging Roles...');
-      // All 5 bots click "Acknowledge"
-      sockets.forEach(s => s.emit('confirm_role', { roomCode: ROOM_CODE }));
-      
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Fetch the updated state
-      sockets[0].emit('join_game_dashboard', { roomCode: ROOM_CODE, name: testAgents[0] });
-      gameState = await waitForEvent(sockets[0], 'game_state_update');
-      
-      if (gameState.phase !== 'TEAM_SELECTION') {
-        throw new Error(`CRITICAL FAIL: FSM is stuck in ${gameState.phase}`);
+      try {
+        const savedMatch = await Match.findOne({ roomCode });
+
+        expect(savedMatch).toBeTruthy();
+        expect(savedMatch.winner).toBe('evil');
+        expect(savedMatch.winReason).toContain('Merlin has fallen');
+        expect(savedMatch.players).toHaveLength(playerCount);
+        expect(savedMatch.questHistory).toHaveLength(3);
+
+        expect(finalPayload.phase).toBe('GAME_OVER');
+        expect(finalPayload.winner).toBe('evil');
+        expect(finalPayload.winReason).toContain('Merlin has fallen');
+
+        savedMatch.players.forEach((player) => {
+          expect(player.role).toBeTruthy();
+          expect(player.team).toMatch(/good|evil/);
+        });
+
+        const users = await User.find({
+          clerkId: { $in: agents.map((agent) => agent.clerkId) },
+        });
+
+        expect(users).toHaveLength(playerCount);
+
+        users.forEach((user) => {
+          expect(user.stats.matchesPlayed).toBe(1);
+        });
+
+        const assassinUser = users.find(
+          (user) => user.clerkId === assassin.socket.agent.clerkId
+        );
+
+        expect(assassinUser).toBeTruthy();
+        expect(assassinUser.stats.winsAsEvil).toBe(1);
+        expect(assassinUser.stats.successfulAssassinations).toBe(1);
+      } finally {
+        disconnectSockets(sockets);
+        await new Promise((resolve) => setTimeout(resolve, 3500));
       }
-
-      console.log('📍 PHASE 3: Executing Game Loop (3 Quests)...');
-      for (let round = 1; round <= 3; round++) {
-        const leaderSocket = sockets.find(s => s.id === gameState.currentLeader.id);
-        
-        // 1. Propose Team
-        const requiredSize = teamSizes[gameState.currentQuest];
-        const proposedTeamIds = gameState.players.slice(0, requiredSize).map(p => p.id);
-        const proposalPromises = sockets.map(s => waitForEvent(s, 'team_proposed'));
-        
-        leaderSocket.emit('propose_team', { roomCode: ROOM_CODE, proposedTeamIds });
-        await Promise.all(proposalPromises);
-
-        // 2. Vote on Team 
-        const voteResolvedPromises = sockets.map(s => waitForEvent(s, 'vote_resolved'));
-        const postVoteStatePromises = sockets.map(s => waitForEvent(s, 'game_state_update'));
-        
-        sockets.forEach(s => s.emit('submit_vote', { roomCode: ROOM_CODE, vote: 'approve' }));
-        
-        await Promise.all(voteResolvedPromises);
-        gameState = (await Promise.all(postVoteStatePromises))[0];
-
-        // 3. Execute Quest 
-        const teamSockets = sockets.filter(s => proposedTeamIds.includes(s.id));
-        const advanceEvent = round === 3 ? 'game_over' : 'quest_result_advance';
-        const advancePromises = sockets.map(s => waitForEvent(s, advanceEvent));
-        
-        teamSockets[0].emit('submit_quest_vote', { roomCode: ROOM_CODE, vote: 'fail' });
-        for (let i = 1; i < teamSockets.length; i++) {
-          teamSockets[i].emit('submit_quest_vote', { roomCode: ROOM_CODE, vote: 'success' });
-        }
-
-        const advanceResults = await Promise.all(advancePromises);
-        
-        if (round === 3) {
-          console.log('📍 PHASE 4: Validating Endgame & MongoDB Record...');
-          const finalPayload = advanceResults[0]; 
-          
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          const savedMatch = await Match.findOne({ roomCode: ROOM_CODE });
-          
-          expect(savedMatch).toBeTruthy();
-          expect(savedMatch.winner).toBe('evil');
-          expect(savedMatch.players.length).toBe(5);
-          
-          expect(finalPayload.phase).toBe('GAME_OVER');
-          expect(finalPayload.winner).toBe('evil');
-          expect(finalPayload.questHistory.length).toBe(3);
-          console.log('✅ TEST PASSED: Full cycle completed and logged to Database.');
-        } else {
-          sockets[0].emit('join_game_dashboard', { roomCode: ROOM_CODE, name: testAgents[0] });
-          gameState = await waitForEvent(sockets[0], 'game_state_update');
-        }
-      }
-    } catch (error) {
-      console.error('\n❌ TEST FAILED ❌');
-      console.error(error.message);
-      throw error; 
-    }
-  }); 
+    },
+    60000,
+  );
 });
