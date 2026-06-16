@@ -1,0 +1,828 @@
+diff --git a/client/src/components/panels/TeamSelectionPanel.tsx b/client/src/components/panels/TeamSelectionPanel.tsx
+index 56f977c..b73c35c 100644
+--- a/client/src/components/panels/TeamSelectionPanel.tsx
++++ b/client/src/components/panels/TeamSelectionPanel.tsx
+@@ -8,12 +8,23 @@ interface Props {
+   currentLeader: { id: string; name: string } | undefined;
+   currentQuest: number;
+   requiredTeamSize: number;
++  failsRequired?: number;
+   selectedTeam: string[];
+   togglePlayerSelection: (id: string) => void;
+   handleProposeTeam: () => void;
+ }
+ 
+-export default function TeamSelectionPanel({ players, amILeader, currentLeader, currentQuest, requiredTeamSize, selectedTeam, togglePlayerSelection, handleProposeTeam }: Props) {
++export default function TeamSelectionPanel({
++  players,
++  amILeader,
++  currentLeader,
++  currentQuest,
++  requiredTeamSize,
++  failsRequired = 1,
++  selectedTeam,
++  togglePlayerSelection,
++  handleProposeTeam
++}: Props) {  
+   return (
+     <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-cyan-500/20 shadow-xl flex-grow flex flex-col gap-4">
+       <div className="text-center mb-2">
+@@ -21,7 +32,7 @@ export default function TeamSelectionPanel({ players, amILeader, currentLeader,
+           {amILeader ? '⚡ You are the Leader' : `${currentLeader?.name ?? '—'} is selecting a team`}
+         </p>
+         <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
+-          Select {requiredTeamSize} agents for Node {currentQuest}
++          Select {requiredTeamSize} agents for Node {currentQuest} · {failsRequired} fail required
+         </p>
+       </div>
+ 
+diff --git a/client/src/pages/Game.tsx b/client/src/pages/Game.tsx
+index 10bf275..eaa8e69 100644
+--- a/client/src/pages/Game.tsx
++++ b/client/src/pages/Game.tsx
+@@ -62,16 +62,10 @@ interface GameState {
+   questVotesCast?: string[];
+   gameId?: number;
+   winReason?: string;
++  requiredTeamSize?: number;
++  failsRequired?: number;
+ }
+ 
+-const QUEST_TEAM_SIZES: Record<number, number> = {
+-  1: 2,
+-  2: 3,
+-  3: 2,
+-  4: 3,
+-  5: 3,
+-};
+-
+ export default function Game() {
+   const { roomCode } = useParams<{ roomCode: string }>();
+   const location = useLocation();
+@@ -86,6 +80,8 @@ export default function Game() {
+     winner: null,
+     questsWon: { good: 0, evil: 0 },
+     proposedTeam: [],
++    requiredTeamSize: 2,
++    failsRequired: 1,
+   });
+   const [myRole, setMyRole] = useState<MyRole>({
+     role: "Awaiting Intel...",
+@@ -114,8 +110,9 @@ export default function Game() {
+     questVotesCast,
+     gameId,
+     winReason,
++    requiredTeamSize = 2,
++    failsRequired = 1,
+   } = gameState;
+-  const requiredTeamSize = QUEST_TEAM_SIZES[currentQuest] ?? 2;
+ 
+   const amILeader = players.find((p) => p.isLeader)?.name === myName;
+   const amIOnTeam = players.find((p) => p.name === myName)?.isOnTeam ?? false;
+@@ -248,6 +245,7 @@ export default function Game() {
+           currentLeader={currentLeader} 
+           currentQuest={currentQuest} 
+           requiredTeamSize={requiredTeamSize} 
++          failsRequired={failsRequired}
+           selectedTeam={selectedTeam} 
+           togglePlayerSelection={togglePlayerSelection} 
+           handleProposeTeam={handleProposeTeam} 
+@@ -330,7 +328,7 @@ export default function Game() {
+ 
+   const getPhaseDuration = (currentPhase: string) => {
+     switch (currentPhase) { 
+-      case 'PRE_GAME_STRATEGY': return 45;
++      case 'PRE_GAME_STRATEGY': return 30;
+       case 'TEAM_SELECTION': return 120; 
+       case 'TEAM_VOTING': return 90; 
+       case 'QUEST_EXECUTION': return 120; 
+@@ -365,7 +363,7 @@ export default function Game() {
+             {phase.replaceAll("_", " ")}
+           </h2>
+           <p className="text-[10px] text-slate-500 uppercase tracking-widest">
+-            Node {currentQuest} of 5
++            Node {currentQuest} of 5 · {requiredTeamSize} Agents · {failsRequired} Fail Required
+           </p>
+         </div>
+         <div className="flex justify-end items-center">
+diff --git a/server/__tests__/gameEngine/GameStateMachine.test.js b/server/__tests__/gameEngine/GameStateMachine.test.js
+index 2454ac3..04a97c5 100644
+--- a/server/__tests__/gameEngine/GameStateMachine.test.js
++++ b/server/__tests__/gameEngine/GameStateMachine.test.js
+@@ -10,10 +10,14 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
+     { id: 'p5', name: 'Eve' }
+   ];
+ 
++  const teamSizes = { 1: 2, 2: 3, 3: 2, 4: 3, 5: 3 };
++
+   beforeEach(() => {
+     fsm = new GameStateMachine(mockPlayers);
+     fsm.startGame();
+     // Simulate all players acknowledging their roles to move to TEAM_SELECTION phase
++    mockPlayers.forEach(p => fsm.confirmRole(p.id));
++    fsm.endStrategyPhase();
+   });
+ 
+   test('Condition 1: Evil wins if 5 consecutive teams are rejected', () => {
+@@ -41,34 +45,52 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
+     // Helper to push a failing quest through the FSM
+     const failQuest = () => {
+       const state = fsm.getState();
+-      fsm.proposeTeam(state.currentLeader.id, ['p1', 'p2']);
+-      mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); // Approve team
++      const requiredSize = teamSizes[state.currentQuest];
++
++      let evilId;
++      fsm.roleAssignments.forEach((data, id) => {
++        if (data.team === 'evil') evilId = id;
++      });
++
++      // Build a team that includes the Evil player
++      const proposedTeamIds = [evilId];
++      mockPlayers.forEach(p => {
++        if (proposedTeamIds.length < requiredSize && p.id !== evilId) {
++          proposedTeamIds.push(p.id);
++        }
++      });
++
++      fsm.proposeTeam(state.currentLeader.id, proposedTeamIds);
++      mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); 
+       
+-      // Quest execution: 1 success, 1 fail (quest fail)
+-      fsm.submitQuestAction('p1', 'success');
+-      fsm.submitQuestAction('p2', 'fail'); 
++      // Evil sabotages, the rest succeed
++      fsm.submitQuestAction(evilId, 'fail');
++      proposedTeamIds.forEach(id => {
++        if (id !== evilId) fsm.submitQuestAction(id, 'success');
++      });
+     };
+ 
+-    failQuest(); fsm.advanceAfterQuestResult(); // Quest 1 fails
+-    failQuest(); fsm.advanceAfterQuestResult(); // Quest 2 fails
++    failQuest(); fsm.advanceAfterQuestResult(); 
++    failQuest(); fsm.advanceAfterQuestResult(); 
+     failQuest(); 
+     
+-    // The 3rd failure should immediately trigger GAME_OVER when we try to advance
+     const result = fsm.advanceAfterQuestResult();
+-
+     expect(result.phase).toBe('GAME_OVER');
+     expect(result.winner).toBe('evil');
+-    expect(result.winReason).toBe('Evil sabotaged 3 quests.');
+   });
+ 
+   test('Condition 3: Evil wins by Assassinating Merlin', () => {
+     // Force 3 successful quests to reach the Assassination Phase
+     const passQuest = () => {
+       const state = fsm.getState();
+-      fsm.proposeTeam(state.currentLeader.id, ['p1', 'p2']);
++      const requiredSize = teamSizes[state.currentQuest];
++      const proposedTeamIds = mockPlayers.slice(0, requiredSize).map(p => p.id);
++      
++      fsm.proposeTeam(state.currentLeader.id, proposedTeamIds);
+       mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); 
+-      fsm.submitQuestAction('p1', 'success');
+-      fsm.submitQuestAction('p2', 'success'); 
++
++      // Everyone votes success
++      proposedTeamIds.forEach(id => fsm.submitQuestAction(id, 'success'));
+     };
+ 
+     passQuest(); fsm.advanceAfterQuestResult(); // Quest 1 passes
+@@ -77,12 +99,12 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
+     
+     // Advancing after 3rd success should enter Assassination Phase
+     const setupResult = fsm.advanceAfterQuestResult();
+-    expect(setupResult.phase).toBe('ASSASSINATION_PHASE');
++    expect(setupResult.state).toBe('ASSASSINATION_PHASE');
+ 
+     // Find the actual Assassin and Merlin from the assignments
+-    const assassinId = setupResult.assassin;
+-    let merlinId;
++    let assassinId, merlinId;
+     fsm.roleAssignments.forEach((data, id) => {
++      if (data.role === 'Assassin') assassinId = id;
+       if (data.role === 'Merlin') merlinId = id;
+     });
+ 
+@@ -91,26 +113,33 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
+ 
+     expect(finalState.phase).toBe('GAME_OVER');
+     expect(finalState.winner).toBe('evil');
+-    expect(finalState.winReason).toBe('Assassin found Merlin.');
++    expect(finalState.winReason).toContain('Merlin has fallen');
+   });
+ 
+   test('Condition 4: Good wins if 3 quests succeed and Merlin survives', () => {
+     // Force 3 successful quests
+-    for (let i = 0; i < 3; i++) {
++    const passQuest = () => {
+       const state = fsm.getState();
+-      fsm.proposeTeam(state.currentLeader.id, ['p1', 'p2']);
++      const requiredSize = teamSizes[state.currentQuest];
++      const proposedTeamIds = mockPlayers.slice(0, requiredSize).map(p => p.id);
++
++      fsm.proposeTeam(state.currentLeader.id, proposedTeamIds);
+       mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); 
+-      fsm.submitQuestAction('p1', 'success');
+-      fsm.submitQuestAction('p2', 'success'); 
++      
++      proposedTeamIds.forEach(id => fsm.submitQuestAction(id, 'success'));
++    };
++
++    for (let i = 0; i < 3; i++) {
++      passQuest();
+       if (i < 2) fsm.advanceAfterQuestResult();
+     }
+     
+-    const setupResult = fsm.advanceAfterQuestResult();
+-    const assassinId = setupResult.assassin;
++    fsm.advanceAfterQuestResult();
+     
+     // Find a Loyal Servant to target incorrectly
+-    let wrongTargetId;
++    let assassinId, wrongTargetId;
+     fsm.roleAssignments.forEach((data, id) => {
++      if (data.role === 'Assassin') assassinId = id;
+       if (data.role === 'Loyal Servant') wrongTargetId = id;
+     });
+ 
+@@ -119,6 +148,6 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
+ 
+     expect(finalState.phase).toBe('GAME_OVER');
+     expect(finalState.winner).toBe('good');
+-    expect(finalState.winReason).toBe('Merlin survived.');
++    expect(finalState.winReason).toContain('The Resistance survives');
+   });
+ });
+\ No newline at end of file
+diff --git a/server/__tests__/gameEngine/QuestManager.test.js b/server/__tests__/gameEngine/QuestManager.test.js
+index 0c57fe4..e82940d 100644
+--- a/server/__tests__/gameEngine/QuestManager.test.js
++++ b/server/__tests__/gameEngine/QuestManager.test.js
+@@ -170,4 +170,89 @@ describe('QuestManager', () => {
+         expect(result.reason).toBe('Evil team won 3 quests');
+     });
+ 
++});
++
++describe('Dynamic Quest Configurations', () => {
++    function makePlayers(count) {
++        return Array.from({ length: count }, (_, i) => ({
++            id: `p${i + 1}`,
++            name: `Player ${i + 1}`,
++        }));
++    }
++
++    test.each([
++        [5, [2, 3, 2, 3, 3]],
++        [6, [2, 3, 4, 3, 4]],
++        [7, [2, 3, 3, 4, 4]],
++        [8, [3, 4, 4, 5, 5]],
++        [9, [3, 4, 4, 5, 5]],
++        [10, [3, 4, 4, 5, 5]],
++    ])('should use correct quest team sizes for %i players', (count, expectedTeamSizes) => {
++        const questManager = new QuestManager(makePlayers(count));
++
++        expectedTeamSizes.forEach((expectedSize, index) => {
++            const questNumber = index + 1;
++            expect(questManager.questConfig[questNumber].teamSize).toBe(expectedSize);
++        });
++    });
++
++    test.each([7, 8, 9, 10])('Quest 4 should require 2 fails for %i players', (count) => {
++        const questManager = new QuestManager(makePlayers(count));
++        expect(questManager.questConfig[4].failsRequired).toBe(2);
++    });
++
++    test.each([5, 6])('Quest 4 should require only 1 fail for %i players', (count) => {
++        const questManager = new QuestManager(makePlayers(count));
++        expect(questManager.questConfig[4].failsRequired).toBe(1);
++    });
++
++    test('Quest 4 in a 7-player game should succeed with only 1 fail', () => {
++        const players = makePlayers(7);
++        const questManager = new QuestManager(players);
++
++        questManager.currentLeaderIndex = 0;
++        questManager.currentQuest = 4;
++
++        const team = ['p1', 'p2', 'p3', 'p4'];
++
++        questManager.proposeTeam('p1', team);
++        players.forEach((p) => questManager.castTeamVote(p.id, 'approve'));
++        questManager.resolveTeamVotes();
++
++        questManager.castQuestVote('p1', 'fail');
++        questManager.castQuestVote('p2', 'success');
++        questManager.castQuestVote('p3', 'success');
++        questManager.castQuestVote('p4', 'success');
++
++        const result = questManager.resolveQuestVotes();
++
++        expect(result.succeeded).toBe(true);
++        expect(result.failCount).toBe(1);
++        expect(result.questsWon.good).toBe(1);
++    });
++
++    test('Quest 4 in a 7-player game should fail with 2 fails', () => {
++        const players = makePlayers(7);
++        const questManager = new QuestManager(players);
++
++        questManager.currentLeaderIndex = 0;
++        questManager.currentQuest = 4;
++
++        const team = ['p1', 'p2', 'p3', 'p4'];
++
++        questManager.proposeTeam('p1', team);
++        players.forEach((p) => questManager.castTeamVote(p.id, 'approve'));
++        questManager.resolveTeamVotes();
++
++        questManager.castQuestVote('p1', 'fail');
++        questManager.castQuestVote('p2', 'fail');
++        questManager.castQuestVote('p3', 'success');
++        questManager.castQuestVote('p4', 'success');
++
++        const result = questManager.resolveQuestVotes();
++
++        expect(result.succeeded).toBe(false);
++        expect(result.failCount).toBe(2);
++        expect(result.questsWon.evil).toBe(1);
++    });
+ });
+\ No newline at end of file
+diff --git a/server/__tests__/gameEngine/RoleAssigner.test.js b/server/__tests__/gameEngine/RoleAssigner.test.js
+index adbe10b..18d7d53 100644
+--- a/server/__tests__/gameEngine/RoleAssigner.test.js
++++ b/server/__tests__/gameEngine/RoleAssigner.test.js
+@@ -1,65 +1,52 @@
+ const RoleAssigner = require('../../gameEngine/RoleAssigner');
+ 
+-describe('RoleAssigner', () => {
++function makePlayers(count) {
++  return Array.from({ length: count }, (_, i) => ({
++    id: `player${i}`,
++    name: `Player ${i}`,
++  }));
++}
+ 
+-    // Test data = 5 players 
+-    const mockPlayers = [
+-        { id: 'player0', name: 'Alice' },   
+-        { id: 'player1', name: 'Bob' },
+-        { id: 'player2', name: 'Charlie' },
+-        { id: 'player3', name: 'Diana' },
+-        { id: 'player4', name: 'Eve' },
+-    ]; 
++describe('RoleAssigner', () => {
+ 
+     // Validation test 
+-    test('should reject wrong number of players', () => {
+-
+-        const tooFew = mockPlayers.slice(0, 4); 
+-        const tooMany = [...mockPlayers, { id: 'player5', name: 'Frank' }]; 
+-
+-        expect(() => RoleAssigner.assignRoles(tooFew))
+-            .toThrow('This game requires EXACTLY 5 players');
++    test('should reject fewer than 5 players and more than 10 players', () => {
++        expect(() => RoleAssigner.assignRoles(makePlayers(4)))
++        .toThrow('Unsupported player count');
+ 
+-        expect(() => RoleAssigner.assignRoles(tooMany))
+-            .toThrow('This game requires EXACTLY 5 players');
++        expect(() => RoleAssigner.assignRoles(makePlayers(11)))
++        .toThrow('Unsupported player count');
+     });
+ 
+     // Team distribution test
+-    test('should assign 2 good and 2 evil players', () => {
+-        const roleMap = RoleAssigner.assignRoles(mockPlayers);
+-
+-        let goodCount = 0;
+-        let evilCount = 0;
+-
+-        roleMap.forEach(asg => {
+-            if (asg.team === 'good') goodCount++;
+-            if (asg.team === 'evil') evilCount++;
+-        }); 
+-
+-        expect(goodCount).toBe(3);
+-        expect(evilCount).toBe(2);
++    test.each([
++        [5, 3, 2],
++        [6, 4, 2],
++        [7, 4, 3],
++        [8, 5, 3],
++        [9, 6, 3],
++        [10, 6, 4],
++    ])('should assign correct Good/Evil split for %i players', (count, goodCount, evilCount) => {
++        const roleMap = RoleAssigner.assignRoles(makePlayers(count));
++        const roles = Array.from(roleMap.values());
++
++        expect(roles.filter((r) => r.team === 'good')).toHaveLength(goodCount);
++        expect(roles.filter((r) => r.team === 'evil')).toHaveLength(evilCount);
+     });
+ 
+     // Role distribution test 
+-    test('should assign 1 Merlin, 1 Assassin, 1 Minion, and 2 Loyal Servants', () => {  
+-        const roleMap = RoleAssigner.assignRoles(mockPlayers);
++    test.each([5, 6, 7, 8, 9, 10])('should always assign exactly 1 Merlin and 1 Assassin for %i players', (count) => {
++        const roleMap = RoleAssigner.assignRoles(makePlayers(count));
++        const roles = Array.from(roleMap.values()).map((asg) => asg.role);
+ 
+-        const roles = Array.from(roleMap.values()).map(asg => asg.role);
+-
+-        const merlinCount = roles.filter(r => r === 'Merlin').length;
+-        const assassinCount = roles.filter(r => r === 'Assassin').length;
+-        const minionCount = roles.filter(r => r === 'Minion of Mordred').length;
+-        const loyalCount = roles.filter(r => r === 'Loyal Servant').length;
+-
+-        expect(merlinCount).toBe(1);
+-        expect(assassinCount).toBe(1);
+-        expect(minionCount).toBe(1);
+-        expect(loyalCount).toBe(2);
++        expect(roles.filter((r) => r === 'Merlin')).toHaveLength(1);
++        expect(roles.filter((r) => r === 'Assassin')).toHaveLength(1);
+     });
+ 
+     // Merlin's special info test
+     test('Merlin should see the evil players by name and masked as "Evil"', () => {
+-        const roleMap = RoleAssigner.assignRoles(mockPlayers);
++        const players = makePlayers(7);
++        const roleMap = RoleAssigner.assignRoles(players);
+ 
+         // Find Merlin and evil players' NAMES
+         let merlinId = null;
+@@ -68,28 +55,27 @@ describe('RoleAssigner', () => {
+         roleMap.forEach((asg, playerId) => {
+             if(asg.role === 'Merlin') merlinId = playerId;
+             if(asg.team === 'evil') {
+-                const playerObj = mockPlayers.find(p => p.id === playerId);
+-                evilNames.push(playerObj.name);
++                evilNames.push(players.find((p) => p.id === playerId).name);
+             }
+         });
+ 
+-        // Get Merlin's special info 
+         const merlinInfo = roleMap.get(merlinId); 
++        const seenNames = merlinInfo.specialInfo.map(info => info.id);
+ 
+-        // Merlin should see exactly 2 evil players 
+-        expect(merlinInfo.specialInfo.length).toBe(2);
++        // Merlin should see evil players 
++        expect(merlinInfo.specialInfo).toHaveLength(evilNames.length);
+ 
+         // Check Merlin sees the correct evil player NAMES
+-        const seenNames = merlinInfo.specialInfo.map(info => info.id);
+         expect(seenNames.sort()).toEqual(evilNames.sort());
+         
+         // Check that the specific role is masked as "Evil"
+-        expect(merlinInfo.specialInfo[0].name).toBe('Evil');
++        expect(merlinInfo.specialInfo.every((info) => info.name === 'Evil')).toBe(true);
+     });
+ 
+     // Evil players' special info test 
+     test('Evil players should see each other by name and masked as "Evil"', () => {
+-        const roleMap = RoleAssigner.assignRoles(mockPlayers);
++        const players = makePlayers(10);
++        const roleMap = RoleAssigner.assignRoles(players);
+ 
+         // Find evil players
+         const evilPlayers = [];
+@@ -97,23 +83,18 @@ describe('RoleAssigner', () => {
+             if(asg.team === 'evil') evilPlayers.push({ id: playerId, asg }); 
+         }); 
+ 
+-        // Should have exactly 2 evil players
+-        expect(evilPlayers.length).toBe(2);
+-
+         // Each evil player should see the other 
+-        evilPlayers.forEach(evilPlayer => {
+-            const { id, asg } = evilPlayer; 
+-            const otherEvilId = evilPlayers.find(p => p.id !== id).id;
++        evilPlayers.forEach(({id, asg}) => {
++            const otherEvilNames = evilPlayers
++                .filter((p) => p.id !== id)
++                .map((p) => players.find((player) => player.id === p.id).name)
++                .sort();
+             
+-            // Look up the display name of the other evil player
+-            const otherEvilName = mockPlayers.find(p => p.id === otherEvilId).name;
+-
+-            expect(otherEvilId).toBeDefined();
++            // Look up the display name of other evil players
++            const seenNames = asg.specialInfo.map((info) => info.id).sort();
+ 
+-            expect(asg.specialInfo.length).toBe(1); 
+-            expect(asg.specialInfo[0].id).toBe(otherEvilName); 
+-            expect(asg.specialInfo[0].name).toBe('Evil');      
++            expect(seenNames).toEqual(otherEvilNames);
++            expect(asg.specialInfo.every((info) => info.name === 'Evil')).toBe(true);      
+         });
+     });
+-
+ });
+\ No newline at end of file
+diff --git a/server/__tests__/server.test.js b/server/__tests__/server.test.js
+index 45d7908..21042a8 100644
+--- a/server/__tests__/server.test.js
++++ b/server/__tests__/server.test.js
+@@ -14,10 +14,12 @@ describe('Cipher.gg Backend Socket Infrastructure', () => {
+   }, 15000); // 15 seconds to allow MongoDB to connect
+ 
+   // Disconnect and close server after tests
+-  afterAll((done) => {
++  afterAll(async () => {
+     clientSocket.disconnect(); 
++    const mongoose = require('mongoose');
+     const { testServer } = require('../server');
+-    testServer.close(done); 
++    await new Promise(resolve => testServer.close(resolve));
++    await mongoose.connection.close();
+   });
+ 
+   // TESTS
+diff --git a/server/gameEngine/QuestManager.js b/server/gameEngine/QuestManager.js
+index 261d470..3bfc13e 100644
+--- a/server/gameEngine/QuestManager.js
++++ b/server/gameEngine/QuestManager.js
+@@ -1,6 +1,8 @@
++const { getQuestConfig } = require('./config/gameConfig');
++
+ /**
+  * Quest Manager - Handles team selection, voting question execution
+- * For 5 players only 
++ * Supports 5 to 10 players 
+  */
+ 
+ class QuestManager {
+@@ -8,14 +10,8 @@ class QuestManager {
+     constructor(players) {
+         this.players = players;
+ 
+-        // Quest configuration for 5 players
+-        this.questConfig = {
+-            1: { teamSize: 2, failsRequired: 1 },
+-            2: { teamSize: 3, failsRequired: 1 },
+-            3: { teamSize: 2, failsRequired: 1 },
+-            4: { teamSize: 3, failsRequired: 1 },
+-            5: { teamSize: 3, failsRequired: 1 }
+-        }; 
++        // Quest configuration for 5 to 10 players
++        this.questConfig = getQuestConfig(players.length);
+ 
+         // Game state 
+         this.currentQuest = 1;
+@@ -276,6 +272,7 @@ class QuestManager {
+      * Get current game state 
+      */
+     getGameState() {
++        const currentQuestConfig = this.questConfig[this.currentQuest];
+         return {
+             currentQuest: this.currentQuest, 
+             currentLeader: this.players[this.currentLeaderIndex],
+@@ -284,7 +281,9 @@ class QuestManager {
+             proposedTeam: [...this.proposedTeam],
+             questHistory: [...this.questHistory],
+             teamVotesCast: Array.from(this.teamVotes.keys()),
+-            questVotesCast: Array.from(this.questVotes.keys())
++            questVotesCast: Array.from(this.questVotes.keys()),
++            requiredTeamSize: currentQuestConfig.teamSize,
++            failsRequired: currentQuestConfig.failsRequired,
+         }; 
+ 
+     }
+diff --git a/server/gameEngine/RoleAssigner.js b/server/gameEngine/RoleAssigner.js
+index fb42e3f..4ff2b8f 100644
+--- a/server/gameEngine/RoleAssigner.js
++++ b/server/gameEngine/RoleAssigner.js
+@@ -1,28 +1,35 @@
+-/* 
+-Simple role assignment logic 
+-Fixed: Exactly 5 players 
+-Roles: 3 Good (Merlin + 2 Loyal) vs 2 Evil (Assassin + 1 Minion)
++const { getAlignmentConfig } = require('./config/gameConfig');
++
++/*
++Dynamic role assignment logic.
++Supports 5 to 10 players.
++
++Base roles:
++- 1 Merlin
++- 1 Assassin
++
++Remaining Good players become Loyal Servants.
++Remaining Evil players become Minions of Mordred.
+ */
+ 
+ class RoleAssigner {
+     /**
+-     * Assign roles to exactly 5 players 
++     * Assign roles to 5 to 10 players.
+      * @param {Array} players - Array of player objects { id, name }
+-     * @returns {Map} playerId -> { role, team, specialInfo}
+-    */
++     * @returns {Map} playerId -> { role, team, specialInfo }
++     */
+    
+-   static assignRoles(players) {
+-        if (players.length !== 5) {
+-            throw new Error("This game requires EXACTLY 5 players");
+-        }
++    static assignRoles(players) {
++        const playerCount = players.length;
++        const alignmentConfig = getAlignmentConfig(playerCount);
+ 
+-        const roles = [
+-            { name: 'Merlin', team: 'good' }, 
+-            { name: 'Loyal Servant', team: 'good' },
+-            { name: 'Loyal Servant', team: 'good' },
+-            { name: 'Assassin', team: 'evil' },
+-            { name: 'Minion of Mordred', team: 'evil' }
+-        ];
++        const roles = this.buildRoles(alignmentConfig);
++    
++        if (roles.length !== playerCount) {
++            throw new Error(
++                `Role configuration error: generated ${roles.length} roles for ${playerCount} players.`
++            );
++        }
+ 
+         // Shuffle roles 
+         const shuffledRoles = this.shuffleArray(roles); 
+@@ -34,15 +41,43 @@ class RoleAssigner {
+             roleAssignments.set(player.id, {
+                 role: shuffledRoles[index].name,
+                 team: shuffledRoles[index].team,
+-                specialInfo: []
++                specialInfo: [],
+             });
+-        })
++        });
+ 
+         this.addSpecialInfo(players, roleAssignments);
+ 
+         return roleAssignments;
+     }
+ 
++    /**
++     * Build actualt role list from Good/Evil count.
++     * 
++     * eg. for 7 players:
++     * Good: Merlin + 3 Loyal Servants
++     * Evil: Assassin + 2 Minions of Modred
++     */
++    static buildRoles(alignmentConfig) {
++        const roles = [
++            {name: 'Merlin', team: 'good'},
++            {name: 'Assassin', team: 'evil'},
++        ];
++
++        const loyalServantCount = alignmentConfig.good - 1;
++        const minionCount = alignmentConfig.evil - 1;
++
++        for (let i = 0; i < loyalServantCount; i++) {
++            roles.push({name: 'Loyal Servant', team: 'good'});
++        }
++
++        for (let i = 0; i < minionCount; i++) {
++            roles.push({ name: 'Minion of Mordred', team: 'evil' });
++        }
++
++
++        return roles;
++    }
++
+     /**
+      * Merlin sees both evil players 
+      * Evil players see each other 
+diff --git a/server/server.js b/server/server.js
+index bc93546..b434e0a 100644
+--- a/server/server.js
++++ b/server/server.js
+@@ -6,6 +6,11 @@ const cors = require("cors");
+ const http = require("http");
+ const { Server } = require("socket.io");
+ const GameStateMachine = require("./gameEngine/GameStateMachine");
++const {
++  MIN_PLAYERS,
++  MAX_PLAYERS,
++  isSupportedPlayerCount,
++} = require('./gameEngine/config/gameConfig')
+ 
+ // App & server setup
+ 
+@@ -57,7 +62,7 @@ async function saveMatchRecord(roomCode, gameResult) {
+         userId: p.dbId || null, 
+         guestName: p.dbId ? null : p.name,
+         role: roleData ? roleData.role : 'Unknown',
+-        team: roleData ? roleData.team : 'Unknown'
++        team: roleData ? roleData.team : 'evil'
+       };
+     });
+ 
+@@ -224,11 +229,16 @@ io.on("connection", (socket) => {
+         "ACCESS DENIED: The game has already started!",
+       );
+     }
++    
++    // Ensure room settings exist before checking dynamic capacity.
++    getOrInitRoom(roomCode);
+ 
+-    if (!isExistingPlayer && rooms[roomCode] && rooms[roomCode].length >= 5) {
++    const maxPlayers = roomSettings[roomCode]?.teamSize ?? MIN_PLAYERS;
++
++    if (!isExistingPlayer && rooms[roomCode] && rooms[roomCode].length >= maxPlayers) {
+       return socket.emit(
+         "room_error",
+-        "ACCESS DENIED: The lobby is full (Max 5 Agents).",
++        `ACCESS DENIED: The lobby is full (Max ${maxPlayers} Agents).`,
+       );
+     }
+ 
+@@ -357,11 +367,27 @@ io.on("connection", (socket) => {
+   });
+ 
+   socket.on("change_settings", ({ roomCode, teamSize }) => {
++    getOrInitRoom(roomCode);
+     const requester = rooms[roomCode]?.find((p) => p.id === socket.id);
+-    if (requester?.isHost) {
+-      roomSettings[roomCode].teamSize = teamSize;
+-      io.to(roomCode).emit("settings_update", roomSettings[roomCode]);
++    if (!requester?.isHost) return;
++    const parsedTeamSize = Number(teamSize);
++    if (!isSupportedPlayerCount(parsedTeamSize)) {
++      return socket.emit(
++        "room_error",
++        `Invalid lobby size. Choose between ${MIN_PLAYERS} and ${MAX_PLAYERS} players.`,
++      );
+     }
++
++    if (rooms[roomCode].length > parsedTeamSize) {
++      return socket.emit(
++        "room_error",
++        `Cannot reduce lobby size below current player count (${rooms[roomCode].length}).`,
++      );
++    }
++
++    roomSettings[roomCode].teamSize = parsedTeamSize;
++    io.to(roomCode).emit("settings_update", roomSettings[roomCode]);
++    io.to(roomCode).emit("roster_update", rooms[roomCode]);
+   });
+ 
+   socket.on('send_message', ({ roomCode, sender, message, channel }) => {
+@@ -389,10 +415,34 @@ io.on("connection", (socket) => {
+   // Game start
+ 
+   socket.on("start_game", ({ roomCode }) => {
++    getOrInitRoom(roomCode);
++
+     const players = rooms[roomCode];
++    const configuredTeamSize = roomSettings[roomCode]?.teamSize ?? MIN_PLAYERS;
++
++
++    if (!players || !isSupportedPlayerCount(players.length)) {
++      return socket.emit(
++        "game_error",
++        `Needs between ${MIN_PLAYERS} and ${MAX_PLAYERS} players to start.`,
++      );
++    }
++
++    if (players.length !== configuredTeamSize) {
++      return socket.emit(
++        "game_error",
++        `Needs exactly ${configuredTeamSize} players to start this lobby.`,
++      );
++    }
++
++    const requester = players.find((p) => p.id === socket.id);
++    if (!requester?.isHost) {
++      return socket.emit("game_error", "Only the host can start the game.");
++    }
+ 
+-    if (!players || players.length !== 5) {
+-      return socket.emit("game_error", "Needs exactly 5 players to start.");
++    const allReady = players.every((p) => p.isReady);
++    if (!allReady) {
++      return socket.emit("game_error", "All agents must be ready before starting.");
+     }
+ 
+     const fsm = new GameStateMachine(players);
+@@ -437,6 +487,7 @@ io.on("connection", (socket) => {
+       // If everyone confirmed, the FSM moves to PRE_GAME_STRATEGY
+       if (result.readyForStrategy) {
+         console.log(`⏱️ All agents acknowledged in ${roomCode}. Starting strategy timer.`);
++        const timerDuration = process.env.NODE_ENV === 'test' ? 100 : 30000;
+         
+         setTimeout(() => {
+           const activeFsm = activeGames[roomCode];
+@@ -453,7 +504,7 @@ io.on("connection", (socket) => {
+ 
+             broadcastGameState(roomCode);
+           }
+-        }, 45000);
++        }, timerDuration);
+       }
+     } catch (err) {
+       socket.emit('game_error', err.message);

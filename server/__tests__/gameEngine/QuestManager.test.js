@@ -171,3 +171,88 @@ describe('QuestManager', () => {
     });
 
 });
+
+describe('Dynamic Quest Configurations', () => {
+    function makePlayers(count) {
+        return Array.from({ length: count }, (_, i) => ({
+            id: `p${i + 1}`,
+            name: `Player ${i + 1}`,
+        }));
+    }
+
+    test.each([
+        [5, [2, 3, 2, 3, 3]],
+        [6, [2, 3, 4, 3, 4]],
+        [7, [2, 3, 3, 4, 4]],
+        [8, [3, 4, 4, 5, 5]],
+        [9, [3, 4, 4, 5, 5]],
+        [10, [3, 4, 4, 5, 5]],
+    ])('should use correct quest team sizes for %i players', (count, expectedTeamSizes) => {
+        const questManager = new QuestManager(makePlayers(count));
+
+        expectedTeamSizes.forEach((expectedSize, index) => {
+            const questNumber = index + 1;
+            expect(questManager.questConfig[questNumber].teamSize).toBe(expectedSize);
+        });
+    });
+
+    test.each([7, 8, 9, 10])('Quest 4 should require 2 fails for %i players', (count) => {
+        const questManager = new QuestManager(makePlayers(count));
+        expect(questManager.questConfig[4].failsRequired).toBe(2);
+    });
+
+    test.each([5, 6])('Quest 4 should require only 1 fail for %i players', (count) => {
+        const questManager = new QuestManager(makePlayers(count));
+        expect(questManager.questConfig[4].failsRequired).toBe(1);
+    });
+
+    test('Quest 4 in a 7-player game should succeed with only 1 fail', () => {
+        const players = makePlayers(7);
+        const questManager = new QuestManager(players);
+
+        questManager.currentLeaderIndex = 0;
+        questManager.currentQuest = 4;
+
+        const team = ['p1', 'p2', 'p3', 'p4'];
+
+        questManager.proposeTeam('p1', team);
+        players.forEach((p) => questManager.castTeamVote(p.id, 'approve'));
+        questManager.resolveTeamVotes();
+
+        questManager.castQuestVote('p1', 'fail');
+        questManager.castQuestVote('p2', 'success');
+        questManager.castQuestVote('p3', 'success');
+        questManager.castQuestVote('p4', 'success');
+
+        const result = questManager.resolveQuestVotes();
+
+        expect(result.succeeded).toBe(true);
+        expect(result.failCount).toBe(1);
+        expect(result.questsWon.good).toBe(1);
+    });
+
+    test('Quest 4 in a 7-player game should fail with 2 fails', () => {
+        const players = makePlayers(7);
+        const questManager = new QuestManager(players);
+
+        questManager.currentLeaderIndex = 0;
+        questManager.currentQuest = 4;
+
+        const team = ['p1', 'p2', 'p3', 'p4'];
+
+        questManager.proposeTeam('p1', team);
+        players.forEach((p) => questManager.castTeamVote(p.id, 'approve'));
+        questManager.resolveTeamVotes();
+
+        questManager.castQuestVote('p1', 'fail');
+        questManager.castQuestVote('p2', 'fail');
+        questManager.castQuestVote('p3', 'success');
+        questManager.castQuestVote('p4', 'success');
+
+        const result = questManager.resolveQuestVotes();
+
+        expect(result.succeeded).toBe(false);
+        expect(result.failCount).toBe(2);
+        expect(result.questsWon.evil).toBe(1);
+    });
+});

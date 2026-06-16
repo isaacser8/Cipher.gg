@@ -6,6 +6,11 @@ const cors = require("cors");
 const http = require("http");
 const { Server } = require("socket.io");
 const GameStateMachine = require("./gameEngine/GameStateMachine");
+const {
+  MIN_PLAYERS,
+  MAX_PLAYERS,
+  isSupportedPlayerCount,
+} = require('./gameEngine/config/gameConfig')
 
 // App & server setup
 
@@ -57,7 +62,7 @@ async function saveMatchRecord(roomCode, gameResult) {
         userId: p.dbId || null, 
         guestName: p.dbId ? null : p.name,
         role: roleData ? roleData.role : 'Unknown',
-        team: roleData ? roleData.team : 'Unknown'
+        team: roleData ? roleData.team : 'evil'
       };
     });
 
@@ -224,11 +229,16 @@ io.on("connection", (socket) => {
         "ACCESS DENIED: The game has already started!",
       );
     }
+    
+    // Ensure room settings exist before checking dynamic capacity.
+    getOrInitRoom(roomCode);
 
-    if (!isExistingPlayer && rooms[roomCode] && rooms[roomCode].length >= 5) {
+    const maxPlayers = roomSettings[roomCode]?.teamSize ?? MIN_PLAYERS;
+
+    if (!isExistingPlayer && rooms[roomCode] && rooms[roomCode].length >= maxPlayers) {
       return socket.emit(
         "room_error",
-        "ACCESS DENIED: The lobby is full (Max 5 Agents).",
+        `ACCESS DENIED: The lobby is full (Max ${maxPlayers} Agents).`,
       );
     }
 
@@ -273,6 +283,7 @@ io.on("connection", (socket) => {
         isHost: shouldBeHost,
         isReady: false,
         isConnected: true,
+        dbId: mongoDbId
       });
       socket.to(roomCode).emit("player_joined", { user: safeName });
     } else {
@@ -281,6 +292,7 @@ io.on("connection", (socket) => {
       existingPlayer.isConnected = true;
       existingPlayer.isReady = false;
       if (shouldBeHost) existingPlayer.isHost = true;
+      if (mongoDbId) existingPlayer.dbId = mongoDbId;
     }
 
     socket.roomCode = roomCode;
@@ -355,11 +367,27 @@ io.on("connection", (socket) => {
   });
 
   socket.on("change_settings", ({ roomCode, teamSize }) => {
+    getOrInitRoom(roomCode);
     const requester = rooms[roomCode]?.find((p) => p.id === socket.id);
-    if (requester?.isHost) {
-      roomSettings[roomCode].teamSize = teamSize;
-      io.to(roomCode).emit("settings_update", roomSettings[roomCode]);
+    if (!requester?.isHost) return;
+    const parsedTeamSize = Number(teamSize);
+    if (!isSupportedPlayerCount(parsedTeamSize)) {
+      return socket.emit(
+        "room_error",
+        `Invalid lobby size. Choose between ${MIN_PLAYERS} and ${MAX_PLAYERS} players.`,
+      );
     }
+
+    if (rooms[roomCode].length > parsedTeamSize) {
+      return socket.emit(
+        "room_error",
+        `Cannot reduce lobby size below current player count (${rooms[roomCode].length}).`,
+      );
+    }
+
+    roomSettings[roomCode].teamSize = parsedTeamSize;
+    io.to(roomCode).emit("settings_update", roomSettings[roomCode]);
+    io.to(roomCode).emit("roster_update", rooms[roomCode]);
   });
 
   socket.on('send_message', ({ roomCode, sender, message, channel }) => {
@@ -387,10 +415,34 @@ io.on("connection", (socket) => {
   // Game start
 
   socket.on("start_game", ({ roomCode }) => {
-    const players = rooms[roomCode];
+    getOrInitRoom(roomCode);
 
-    if (!players || players.length !== 5) {
-      return socket.emit("game_error", "Needs exactly 5 players to start.");
+    const players = rooms[roomCode];
+    const configuredTeamSize = roomSettings[roomCode]?.teamSize ?? MIN_PLAYERS;
+
+
+    if (!players || !isSupportedPlayerCount(players.length)) {
+      return socket.emit(
+        "game_error",
+        `Needs between ${MIN_PLAYERS} and ${MAX_PLAYERS} players to start.`,
+      );
+    }
+
+    if (players.length !== configuredTeamSize) {
+      return socket.emit(
+        "game_error",
+        `Needs exactly ${configuredTeamSize} players to start this lobby.`,
+      );
+    }
+
+    const requester = players.find((p) => p.id === socket.id);
+    if (!requester?.isHost) {
+      return socket.emit("game_error", "Only the host can start the game.");
+    }
+
+    const allReady = players.every((p) => p.isReady);
+    if (!allReady) {
+      return socket.emit("game_error", "All agents must be ready before starting.");
     }
 
     const fsm = new GameStateMachine(players);
@@ -435,6 +487,7 @@ io.on("connection", (socket) => {
       // If everyone confirmed, the FSM moves to PRE_GAME_STRATEGY
       if (result.readyForStrategy) {
         console.log(`⏱️ All agents acknowledged in ${roomCode}. Starting strategy timer.`);
+        const timerDuration = process.env.NODE_ENV === 'test' ? 100 : 30000;
         
         setTimeout(() => {
           const activeFsm = activeGames[roomCode];
@@ -451,7 +504,7 @@ io.on("connection", (socket) => {
 
             broadcastGameState(roomCode);
           }
-        }, 45000);
+        }, timerDuration);
       }
     } catch (err) {
       socket.emit('game_error', err.message);

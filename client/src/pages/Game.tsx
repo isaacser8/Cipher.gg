@@ -62,15 +62,9 @@ interface GameState {
   questVotesCast?: string[];
   gameId?: number;
   winReason?: string;
+  requiredTeamSize?: number;
+  failsRequired?: number;
 }
-
-const QUEST_TEAM_SIZES: Record<number, number> = {
-  1: 2,
-  2: 3,
-  3: 2,
-  4: 3,
-  5: 3,
-};
 
 export default function Game() {
   const { roomCode } = useParams<{ roomCode: string }>();
@@ -86,6 +80,8 @@ export default function Game() {
     winner: null,
     questsWon: { good: 0, evil: 0 },
     proposedTeam: [],
+    requiredTeamSize: 2,
+    failsRequired: 1,
   });
   const [myRole, setMyRole] = useState<MyRole>({
     role: "Awaiting Intel...",
@@ -114,8 +110,9 @@ export default function Game() {
     questVotesCast,
     gameId,
     winReason,
+    requiredTeamSize = 2,
+    failsRequired = 1,
   } = gameState;
-  const requiredTeamSize = QUEST_TEAM_SIZES[currentQuest] ?? 2;
 
   const amILeader = players.find((p) => p.isLeader)?.name === myName;
   const amIOnTeam = players.find((p) => p.name === myName)?.isOnTeam ?? false;
@@ -248,6 +245,7 @@ export default function Game() {
           currentLeader={currentLeader} 
           currentQuest={currentQuest} 
           requiredTeamSize={requiredTeamSize} 
+          failsRequired={failsRequired}
           selectedTeam={selectedTeam} 
           togglePlayerSelection={togglePlayerSelection} 
           handleProposeTeam={handleProposeTeam} 
@@ -330,7 +328,7 @@ export default function Game() {
 
   const getPhaseDuration = (currentPhase: string) => {
     switch (currentPhase) { 
-      case 'PRE_GAME_STRATEGY': return 45;
+      case 'PRE_GAME_STRATEGY': return 30;
       case 'TEAM_SELECTION': return 120; 
       case 'TEAM_VOTING': return 90; 
       case 'QUEST_EXECUTION': return 120; 
@@ -365,7 +363,7 @@ export default function Game() {
             {phase.replaceAll("_", " ")}
           </h2>
           <p className="text-[10px] text-slate-500 uppercase tracking-widest">
-            Node {currentQuest} of 5
+            Node {currentQuest} of 5 · {requiredTeamSize} Agents · {failsRequired} Fail Required
           </p>
         </div>
         <div className="flex justify-end items-center">

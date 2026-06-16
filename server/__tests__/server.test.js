@@ -14,10 +14,12 @@ describe('Cipher.gg Backend Socket Infrastructure', () => {
   }, 15000); // 15 seconds to allow MongoDB to connect
 
   // Disconnect and close server after tests
-  afterAll((done) => {
+  afterAll(async () => {
     clientSocket.disconnect(); 
+    const mongoose = require('mongoose');
     const { testServer } = require('../server');
-    testServer.close(done); 
+    await new Promise(resolve => testServer.close(resolve));
+    await mongoose.connection.close();
   });
 
   // TESTS
