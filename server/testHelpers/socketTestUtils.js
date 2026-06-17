@@ -1,5 +1,17 @@
+/**
+ * Socket test utilities used by full loop integration tests.
+ *
+ * These helpers keep Socket.IO timing predictable by waiting for
+ * specific server events before the test continues.
+ */
 const { io } = require('socket.io-client');
 
+/**
+ * Waits for a single Socket.IO event and fails the test if it never arrives.
+ *
+ * The listener should be created before emitting the action that triggers the event.
+ * Otherwise, server responses could be missed.
+ */
 const waitForEvent = (socket, eventName, timeoutMs = 10000) => {
   return new Promise((resolve, reject) => {
     let timer;
@@ -23,6 +35,12 @@ const waitForEvent = (socket, eventName, timeoutMs = 10000) => {
   });
 };
 
+/**
+ * Creates one socket per simulated player.
+ *
+ * The agent object is attached to each socket so tests can later connect
+ * socket identity back to the generated user test data.
+ */
 const createTestSockets = async ({ agents, port }) => {
   const sockets = agents.map((agent) => {
     const socket = io(`http://localhost:${port}`);
