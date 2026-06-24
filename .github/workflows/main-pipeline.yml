@@ -10,6 +10,7 @@ jobs:
   build-test-lint:
     name: Full Stack Check
     runs-on: ubuntu-latest 
+    timeout-minutes: 15
 
     steps:
       - name: Checkout Code
@@ -38,11 +39,7 @@ jobs:
         run: |
           npm ci
           npm run lint --if-present
-          npm test
+          npm run test:coverage
         env: 
           MONGO_URI: ${{ secrets.MONGO_URI }}
-
-      - name: Generate Backend Coverage 
-        working-directory: ./server
-        run: npm run test:coverage
-        continue-on-error: true
+          NODE_ENV: test

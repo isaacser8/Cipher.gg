@@ -8,8 +8,7 @@ const userSchema = new mongoose.Schema({
   },
   username: { 
     type: String, 
-    required: true, 
-    unique: true, 
+    required: true,  
     maxLength: 15 
   },
   stats: {

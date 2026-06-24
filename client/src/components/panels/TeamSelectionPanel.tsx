@@ -8,12 +8,23 @@ interface Props {
   currentLeader: { id: string; name: string } | undefined;
   currentQuest: number;
   requiredTeamSize: number;
+  failsRequired?: number;
   selectedTeam: string[];
   togglePlayerSelection: (id: string) => void;
   handleProposeTeam: () => void;
 }
 
-export default function TeamSelectionPanel({ players, amILeader, currentLeader, currentQuest, requiredTeamSize, selectedTeam, togglePlayerSelection, handleProposeTeam }: Props) {
+export default function TeamSelectionPanel({
+  players,
+  amILeader,
+  currentLeader,
+  currentQuest,
+  requiredTeamSize,
+  failsRequired = 1,
+  selectedTeam,
+  togglePlayerSelection,
+  handleProposeTeam
+}: Props) {  
   return (
     <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-cyan-500/20 shadow-xl flex-grow flex flex-col gap-4">
       <div className="text-center mb-2">
@@ -21,7 +32,7 @@ export default function TeamSelectionPanel({ players, amILeader, currentLeader, 
           {amILeader ? '⚡ You are the Leader' : `${currentLeader?.name ?? '—'} is selecting a team`}
         </p>
         <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
-          Select {requiredTeamSize} agents for Node {currentQuest}
+          Select {requiredTeamSize} agents for Node {currentQuest} · {failsRequired} fail required
         </p>
       </div>
 

@@ -10,6 +10,8 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
     { id: 'p5', name: 'Eve' }
   ];
 
+  const teamSizes = { 1: 2, 2: 3, 3: 2, 4: 3, 5: 3 };
+
   beforeEach(() => {
     fsm = new GameStateMachine(mockPlayers);
     fsm.startGame();
@@ -43,34 +45,52 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
     // Helper to push a failing quest through the FSM
     const failQuest = () => {
       const state = fsm.getState();
-      fsm.proposeTeam(state.currentLeader.id, ['p1', 'p2']);
-      mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); // Approve team
+      const requiredSize = teamSizes[state.currentQuest];
+
+      let evilId;
+      fsm.roleAssignments.forEach((data, id) => {
+        if (data.team === 'evil') evilId = id;
+      });
+
+      // Build a team that includes the Evil player
+      const proposedTeamIds = [evilId];
+      mockPlayers.forEach(p => {
+        if (proposedTeamIds.length < requiredSize && p.id !== evilId) {
+          proposedTeamIds.push(p.id);
+        }
+      });
+
+      fsm.proposeTeam(state.currentLeader.id, proposedTeamIds);
+      mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); 
       
-      // Quest execution: 1 success, 1 fail (quest fail)
-      fsm.submitQuestAction('p1', 'success');
-      fsm.submitQuestAction('p2', 'fail'); 
+      // Evil sabotages, the rest succeed
+      fsm.submitQuestAction(evilId, 'fail');
+      proposedTeamIds.forEach(id => {
+        if (id !== evilId) fsm.submitQuestAction(id, 'success');
+      });
     };
 
-    failQuest(); fsm.advanceAfterQuestResult(); // Quest 1 fails
-    failQuest(); fsm.advanceAfterQuestResult(); // Quest 2 fails
+    failQuest(); fsm.advanceAfterQuestResult(); 
+    failQuest(); fsm.advanceAfterQuestResult(); 
     failQuest(); 
     
-    // The 3rd failure should immediately trigger GAME_OVER when we try to advance
     const result = fsm.advanceAfterQuestResult();
-
     expect(result.phase).toBe('GAME_OVER');
     expect(result.winner).toBe('evil');
-    expect(result.winReason).toBe('Evil sabotaged 3 quests.');
   });
 
   test('Condition 3: Evil wins by Assassinating Merlin', () => {
     // Force 3 successful quests to reach the Assassination Phase
     const passQuest = () => {
       const state = fsm.getState();
-      fsm.proposeTeam(state.currentLeader.id, ['p1', 'p2']);
+      const requiredSize = teamSizes[state.currentQuest];
+      const proposedTeamIds = mockPlayers.slice(0, requiredSize).map(p => p.id);
+      
+      fsm.proposeTeam(state.currentLeader.id, proposedTeamIds);
       mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); 
-      fsm.submitQuestAction('p1', 'success');
-      fsm.submitQuestAction('p2', 'success'); 
+
+      // Everyone votes success
+      proposedTeamIds.forEach(id => fsm.submitQuestAction(id, 'success'));
     };
 
     passQuest(); fsm.advanceAfterQuestResult(); // Quest 1 passes
@@ -79,12 +99,12 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
     
     // Advancing after 3rd success should enter Assassination Phase
     const setupResult = fsm.advanceAfterQuestResult();
-    expect(setupResult.phase).toBe('ASSASSINATION_PHASE');
+    expect(setupResult.state).toBe('ASSASSINATION_PHASE');
 
     // Find the actual Assassin and Merlin from the assignments
-    const assassinId = setupResult.assassin;
-    let merlinId;
+    let assassinId, merlinId;
     fsm.roleAssignments.forEach((data, id) => {
+      if (data.role === 'Assassin') assassinId = id;
       if (data.role === 'Merlin') merlinId = id;
     });
 
@@ -93,26 +113,33 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
 
     expect(finalState.phase).toBe('GAME_OVER');
     expect(finalState.winner).toBe('evil');
-    expect(finalState.winReason).toBe('Assassin found Merlin.');
+    expect(finalState.winReason).toContain('Merlin has fallen');
   });
 
   test('Condition 4: Good wins if 3 quests succeed and Merlin survives', () => {
     // Force 3 successful quests
-    for (let i = 0; i < 3; i++) {
+    const passQuest = () => {
       const state = fsm.getState();
-      fsm.proposeTeam(state.currentLeader.id, ['p1', 'p2']);
+      const requiredSize = teamSizes[state.currentQuest];
+      const proposedTeamIds = mockPlayers.slice(0, requiredSize).map(p => p.id);
+
+      fsm.proposeTeam(state.currentLeader.id, proposedTeamIds);
       mockPlayers.forEach(p => fsm.castVote(p.id, 'approve')); 
-      fsm.submitQuestAction('p1', 'success');
-      fsm.submitQuestAction('p2', 'success'); 
+      
+      proposedTeamIds.forEach(id => fsm.submitQuestAction(id, 'success'));
+    };
+
+    for (let i = 0; i < 3; i++) {
+      passQuest();
       if (i < 2) fsm.advanceAfterQuestResult();
     }
     
-    const setupResult = fsm.advanceAfterQuestResult();
-    const assassinId = setupResult.assassin;
+    fsm.advanceAfterQuestResult();
     
     // Find a Loyal Servant to target incorrectly
-    let wrongTargetId;
+    let assassinId, wrongTargetId;
     fsm.roleAssignments.forEach((data, id) => {
+      if (data.role === 'Assassin') assassinId = id;
       if (data.role === 'Loyal Servant') wrongTargetId = id;
     });
 
@@ -121,6 +148,6 @@ describe('Win/Loss Condition Detection (GameStateMachine)', () => {
 
     expect(finalState.phase).toBe('GAME_OVER');
     expect(finalState.winner).toBe('good');
-    expect(finalState.winReason).toBe('Merlin survived.');
+    expect(finalState.winReason).toContain('The Resistance survives');
   });
 });

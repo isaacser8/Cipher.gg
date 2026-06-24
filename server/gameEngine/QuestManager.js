@@ -1,6 +1,8 @@
+const { getQuestConfig } = require('./config/gameConfig');
+
 /**
  * Quest Manager - Handles team selection, voting question execution
- * For 5 players only 
+ * Supports 5 to 10 players 
  */
 
 class QuestManager {
@@ -8,14 +10,8 @@ class QuestManager {
     constructor(players) {
         this.players = players;
 
-        // Quest configuration for 5 players
-        this.questConfig = {
-            1: { teamSize: 2, failsRequired: 1 },
-            2: { teamSize: 3, failsRequired: 1 },
-            3: { teamSize: 2, failsRequired: 1 },
-            4: { teamSize: 3, failsRequired: 1 },
-            5: { teamSize: 3, failsRequired: 1 }
-        }; 
+        // Quest configuration for 5 to 10 players
+        this.questConfig = getQuestConfig(players.length);
 
         // Game state 
         this.currentQuest = 1;
@@ -276,6 +272,7 @@ class QuestManager {
      * Get current game state 
      */
     getGameState() {
+        const currentQuestConfig = this.questConfig[this.currentQuest];
         return {
             currentQuest: this.currentQuest, 
             currentLeader: this.players[this.currentLeaderIndex],
@@ -284,7 +281,9 @@ class QuestManager {
             proposedTeam: [...this.proposedTeam],
             questHistory: [...this.questHistory],
             teamVotesCast: Array.from(this.teamVotes.keys()),
-            questVotesCast: Array.from(this.questVotes.keys())
+            questVotesCast: Array.from(this.questVotes.keys()),
+            requiredTeamSize: currentQuestConfig.teamSize,
+            failsRequired: currentQuestConfig.failsRequired,
         }; 
 
     }

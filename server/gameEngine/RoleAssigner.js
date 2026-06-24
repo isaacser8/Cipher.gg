@@ -1,28 +1,35 @@
-/* 
-Simple role assignment logic 
-Fixed: Exactly 5 players 
-Roles: 3 Good (Merlin + 2 Loyal) vs 2 Evil (Assassin + 1 Minion)
+const { getAlignmentConfig } = require('./config/gameConfig');
+
+/*
+Dynamic role assignment logic.
+Supports 5 to 10 players.
+
+Base roles:
+- 1 Merlin
+- 1 Assassin
+
+Remaining Good players become Loyal Servants.
+Remaining Evil players become Minions of Mordred.
 */
 
 class RoleAssigner {
     /**
-     * Assign roles to exactly 5 players 
+     * Assign roles to 5 to 10 players.
      * @param {Array} players - Array of player objects { id, name }
-     * @returns {Map} playerId -> { role, team, specialInfo}
-    */
+     * @returns {Map} playerId -> { role, team, specialInfo }
+     */
    
-   static assignRoles(players) {
-        if (players.length !== 5) {
-            throw new Error("This game requires EXACTLY 5 players");
-        }
+    static assignRoles(players) {
+        const playerCount = players.length;
+        const alignmentConfig = getAlignmentConfig(playerCount);
 
-        const roles = [
-            { name: 'Merlin', team: 'good' }, 
-            { name: 'Loyal Servant', team: 'good' },
-            { name: 'Loyal Servant', team: 'good' },
-            { name: 'Assassin', team: 'evil' },
-            { name: 'Minion of Mordred', team: 'evil' }
-        ];
+        const roles = this.buildRoles(alignmentConfig);
+    
+        if (roles.length !== playerCount) {
+            throw new Error(
+                `Role configuration error: generated ${roles.length} roles for ${playerCount} players.`
+            );
+        }
 
         // Shuffle roles 
         const shuffledRoles = this.shuffleArray(roles); 
@@ -34,13 +41,41 @@ class RoleAssigner {
             roleAssignments.set(player.id, {
                 role: shuffledRoles[index].name,
                 team: shuffledRoles[index].team,
-                specialInfo: []
+                specialInfo: [],
             });
-        })
+        });
 
         this.addSpecialInfo(players, roleAssignments);
 
         return roleAssignments;
+    }
+
+    /**
+     * Build actualt role list from Good/Evil count.
+     * 
+     * eg. for 7 players:
+     * Good: Merlin + 3 Loyal Servants
+     * Evil: Assassin + 2 Minions of Modred
+     */
+    static buildRoles(alignmentConfig) {
+        const roles = [
+            {name: 'Merlin', team: 'good'},
+            {name: 'Assassin', team: 'evil'},
+        ];
+
+        const loyalServantCount = alignmentConfig.good - 1;
+        const minionCount = alignmentConfig.evil - 1;
+
+        for (let i = 0; i < loyalServantCount; i++) {
+            roles.push({name: 'Loyal Servant', team: 'good'});
+        }
+
+        for (let i = 0; i < minionCount; i++) {
+            roles.push({ name: 'Minion of Mordred', team: 'evil' });
+        }
+
+
+        return roles;
     }
 
     /**
