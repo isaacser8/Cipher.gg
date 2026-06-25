@@ -56,14 +56,20 @@ const QUEST_CONFIG = {
 };
 
 function isSupportedPlayerCount(playerCount) {
-  return playerCount >= MIN_PLAYERS && playerCount <= MAX_PLAYERS;
+  return (
+    Number.isInteger(playerCount) &&
+    playerCount >= MIN_PLAYERS &&
+    playerCount <= MAX_PLAYERS
+  );
 }
 
 function getAlignmentConfig(playerCount) {
   const config = PLAYER_ALIGNMENT_CONFIG[playerCount];
 
   if (!config) {
-    throw new Error(`Unsupported player count: ${playerCount}. This game supports 5 to 10 players.`);
+    throw new Error(
+      `Unsupported player count: ${playerCount}. This game supports 5 to 10 players.`,
+    );
   }
 
   return config;
@@ -73,7 +79,9 @@ function getQuestConfig(playerCount) {
   const config = QUEST_CONFIG[playerCount];
 
   if (!config) {
-    throw new Error(`Unsupported player count: ${playerCount}. This game supports 5 to 10 players.`);
+    throw new Error(
+      `Unsupported player count: ${playerCount}. This game supports 5 to 10 players.`,
+    );
   }
 
   return config;
