@@ -64,6 +64,7 @@ interface GameState {
   winReason?: string;
   requiredTeamSize?: number;
   failsRequired?: number;
+  phaseEndsAt?: number | null;
 }
 
 export default function Game() {
@@ -112,6 +113,7 @@ export default function Game() {
     winReason,
     requiredTeamSize = 2,
     failsRequired = 1,
+    phaseEndsAt,
   } = gameState;
 
   const amILeader = players.find((p) => p.isLeader)?.name === myName;
@@ -383,6 +385,7 @@ export default function Game() {
             votesRejected={votesRejected}
             onExpire={handleTimerExpire}
             gameId={gameId}
+            phaseEndsAt={phaseEndsAt}
           />
         </div>
       </header>

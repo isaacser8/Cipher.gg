@@ -9,6 +9,7 @@ interface PhaseTimerProps {
   votesRejected: number;
   onExpire?: () => void;
   gameId?: number;
+  phaseEndsAt?: number | null;
 }
 
 function getStorageKey(
@@ -26,7 +27,12 @@ function getInitialTimeLeft(
   currentQuest: number,
   votesRejected: number,
   initialSeconds: number,
+  phaseEndsAt?: number | null,
 ) {
+  if (phaseEndsAt) {
+    return Math.max(0, Math.round((phaseEndsAt - Date.now()) / 1000));
+  }
+
   const storageKey = getStorageKey(gameId, phase, currentQuest, votesRejected);
   const savedEndTime = sessionStorage.getItem(storageKey);
 
@@ -41,16 +47,17 @@ function getInitialTimeLeft(
   return initialSeconds;
 }
 
-export default function PhaseTimer({ 
-  phase, 
-  initialSeconds, 
-  currentQuest, 
-  votesRejected, 
-  onExpire, 
-  gameId 
+export default function PhaseTimer({
+  phase,
+  initialSeconds,
+  currentQuest,
+  votesRejected,
+  onExpire,
+  gameId,
+  phaseEndsAt,
 }: PhaseTimerProps) {
   const [timeLeft, setTimeLeft] = useState(() =>
-    getInitialTimeLeft(gameId, phase, currentQuest, votesRejected, initialSeconds),
+    getInitialTimeLeft(gameId, phase, currentQuest, votesRejected, initialSeconds, phaseEndsAt),
   );
 
   useEffect(() => {
@@ -60,11 +67,13 @@ export default function PhaseTimer({
     }
 
     const interval = setInterval(() => {
-      setTimeLeft((prev) => prev - 1);
+      setTimeLeft((prev) =>
+        phaseEndsAt ? Math.max(0, Math.round((phaseEndsAt - Date.now()) / 1000)) : prev - 1,
+      );
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [timeLeft, onExpire]);
+  }, [timeLeft, onExpire, phaseEndsAt]);
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60);

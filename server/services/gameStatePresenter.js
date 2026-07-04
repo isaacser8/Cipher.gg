@@ -10,6 +10,7 @@ function buildClientGameState(roomCode) {
   return {
     ...fsm,
     gameId: game.gameId,
+    phaseEndsAt: game.phaseEndsAt ?? null,
     players: roomPlayers.map((player) => {
       const playerData = {
         id: player.id,

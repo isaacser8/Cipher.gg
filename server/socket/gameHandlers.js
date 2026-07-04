@@ -94,18 +94,18 @@ function registerGameHandlers(io, socket) {
     try {
       const result = game.confirmRole(socket.id);
 
-      broadcastGameState(io, roomCode);
-
       if (result.readyForStrategy) {
         console.log(`⏱️ All agents acknowledged in ${roomCode}. Starting strategy timer.`);
 
         const timerDuration = process.env.NODE_ENV === "test" ? 100 : 30000;
+        game.phaseEndsAt = Date.now() + timerDuration;
 
         setTimeout(() => {
           const activeFsm = activeGames[roomCode];
 
           if (activeFsm && activeFsm.getState().phase === "PRE_GAME_STRATEGY") {
             activeFsm.endStrategyPhase();
+            activeFsm.phaseEndsAt = null;
 
             io.to(`${roomCode}_EVIL`).emit("receive_message", {
               text: "[SYS] The strategy window has closed. Secure channel disconnected.",
@@ -116,6 +116,8 @@ function registerGameHandlers(io, socket) {
           }
         }, timerDuration);
       }
+
+      broadcastGameState(io, roomCode);
     } catch (err) {
       socket.emit("game_error", err.message);
     }
