@@ -215,35 +215,10 @@ async function runVoteHammerGame({ playerCount, port, roomCode }) {
   }
 }
 
-async function runQuestFourTwoFailCheckGame({ playerCount, port, roomCode }) {
-  const context = await setupStartedGame({
-    playerCount,
-    port,
-    roomCode,
-    namePrefix: "Q",
-    clerkPrefix: "test_q4",
-  });
-
-  try {
-    let gameState = context.gameState;
-
-    // Pass first 3 quests to avoid ending the game by evil sabotage.
-    // This brings us to assassination.
-    return {
-      ...context,
-      gameState,
-    };
-  } catch (error) {
-    context.sockets.forEach((socket) => socket.disconnect());
-    throw error;
-  }
-}
-
 module.exports = {
   runThreeSabotagedQuests,
   runThreeSuccessfulQuestsToAssassination,
   runSuccessfulAssassinationGame,
   runGoodWinWrongAssassinationGame,
   runVoteHammerGame,
-  runQuestFourTwoFailCheckGame,
 };
