@@ -186,23 +186,39 @@ async function runVoteHammerGame({ playerCount, port, roomCode }) {
     let finalPayload = null;
 
     for (let voteNumber = 1; voteNumber <= 5; voteNumber++) {
-      const result = await rejectCurrentTeam({
+      if (voteNumber === 5) {
+        const gameOverPromises = context.sockets.map((socket) =>
+          require("./socketTestUtils").waitForEvent(socket, "game_over", 10000)
+        );
+
+        await rejectCurrentTeam({
+          sockets: context.sockets,
+          roomCode,
+          gameState,
+        });
+
+        const gameOverResults = await Promise.all(gameOverPromises);
+        finalPayload = gameOverResults[0];
+        break;
+      }
+
+      await rejectCurrentTeam({
         sockets: context.sockets,
         roomCode,
         gameState,
       });
 
-      if (voteNumber === 5) {
-        finalPayload = result;
-        break;
-      }
-
       const advancePromises = context.sockets.map((socket) =>
         require("./socketTestUtils").waitForEvent(socket, "vote_failed_advance", 10000)
       );
 
-      const advanceResults = await Promise.all(advancePromises);
-      gameState = advanceResults[0];
+      await Promise.all(advancePromises);
+
+      gameState = await refreshGameState({
+        sockets: context.sockets,
+        roomCode,
+        agentName: context.agents[0].name,
+      });
     }
 
     return {
