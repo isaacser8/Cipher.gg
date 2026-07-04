@@ -1,24 +1,32 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { Send, MessageSquare, Search, X } from 'lucide-react';
-import { useSocket } from '../../context/useSocket';
+import { useState, useEffect, useMemo, useRef } from "react";
+import { Send, MessageSquare, Search, X } from "lucide-react";
+import { useSocket } from "../../context/useSocket";
 
 interface ChatBoxProps {
   roomCode: string;
   myName: string;
   myRole?: { role: string; team: string };
-  phase?: string; 
+  phase?: string;
 }
 
-export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProps) {  
+export default function ChatBox({
+  roomCode,
+  myName,
+  myRole,
+  phase,
+}: ChatBoxProps) {
   const { socket } = useSocket();
   const [messages, setMessages] = useState<string[]>([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [channel, setChannel] = useState<'global' | 'evil'>('global');
+  const [newMessage, setNewMessage] = useState("");
+  const [channel, setChannel] = useState<"global" | "evil">("global");
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const effectiveChannel =
+    phase !== "PRE_GAME_STRATEGY" && channel === "evil" ? "global" : channel;
 
   const trimmedSearchQuery = searchQuery.trim().toLowerCase();
 
@@ -34,30 +42,24 @@ export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProp
 
   useEffect(() => {
     if (!isSearchOpen) {
-      chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isSearchOpen]);
 
   useEffect(() => {
-    if (phase !== 'PRE_GAME_STRATEGY' && channel === 'evil') {
-      setChannel('global');
-    }
-  }, [phase, channel]);
-
-  useEffect(() => {
     if (!socket) return;
 
-    socket.on('chat_history', (history: string[]) => {
+    socket.on("chat_history", (history: string[]) => {
       setMessages(history);
     });
 
-    socket.on('receive_message', (data: { text: string }) => {
+    socket.on("receive_message", (data: { text: string }) => {
       setMessages((prev) => [...prev, data.text]);
     });
 
     return () => {
-      socket.off('chat_history');
-      socket.off('receive_message');
+      socket.off("chat_history");
+      socket.off("receive_message");
     };
   }, [socket]);
 
@@ -66,7 +68,7 @@ export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProp
       const nextIsOpen = !prev;
 
       if (!nextIsOpen) {
-        setSearchQuery('');
+        setSearchQuery("");
       }
 
       return nextIsOpen;
@@ -77,14 +79,14 @@ export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProp
     e.preventDefault();
     if (!newMessage.trim() || !socket) return;
 
-    socket.emit('send_message', {
+    socket.emit("send_message", {
       roomCode,
       sender: myName,
       message: newMessage.trim(),
-      channel: channel 
+      channel: effectiveChannel,
     });
 
-    setNewMessage('');
+    setNewMessage("");
   };
 
   return (
@@ -98,44 +100,50 @@ export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProp
         </div>
 
         <div className="flex items-center gap-2">
-          {myRole?.team === 'evil' && phase === 'PRE_GAME_STRATEGY' && !isSearchOpen && (
-            <div className="flex bg-black/40 rounded-lg p-1 border border-white/10">
-              <button 
-                type="button"
-                onClick={() => setChannel('global')}
-                className={`px-3 py-1 text-[10px] font-bold rounded transition-colors uppercase tracking-widest ${
-                  channel === 'global' 
-                    ? 'bg-cyan-500/20 text-cyan-400' 
-                    : 'text-slate-500'
-                }`}
-              >
-                Global
-              </button>
-              <button 
-                type="button"
-                onClick={() => setChannel('evil')}
-                className={`px-3 py-1 text-[10px] font-bold rounded transition-colors uppercase tracking-widest ${
-                  channel === 'evil' 
-                    ? 'bg-rose-500/20 text-rose-400' 
-                    : 'text-slate-500'
-                }`}
-              >
-                Evil
-              </button>
-            </div>
-          )}
+          {myRole?.team === "evil" &&
+            phase === "PRE_GAME_STRATEGY" &&
+            !isSearchOpen && (
+              <div className="flex bg-black/40 rounded-lg p-1 border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => setChannel("global")}
+                  className={`px-3 py-1 text-[10px] font-bold rounded transition-colors uppercase tracking-widest ${
+                    channel === "global"
+                      ? "bg-cyan-500/20 text-cyan-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  Global
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setChannel("evil")}
+                  className={`px-3 py-1 text-[10px] font-bold rounded transition-colors uppercase tracking-widest ${
+                    channel === "evil"
+                      ? "bg-rose-500/20 text-rose-400"
+                      : "text-slate-500"
+                  }`}
+                >
+                  Evil
+                </button>
+              </div>
+            )}
 
           <button
             type="button"
             onClick={handleToggleSearch}
             className={`p-2 rounded-lg border transition-colors ${
               isSearchOpen
-                ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30'
-                : 'bg-black/40 text-slate-500 border-white/10 hover:text-cyan-400'
+                ? "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+                : "bg-black/40 text-slate-500 border-white/10 hover:text-cyan-400"
             }`}
-            aria-label={isSearchOpen ? 'Close chat search' : 'Open chat search'}
+            aria-label={isSearchOpen ? "Close chat search" : "Open chat search"}
           >
-            {isSearchOpen ? <X className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+            {isSearchOpen ? (
+              <X className="w-4 h-4" />
+            ) : (
+              <Search className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
@@ -172,7 +180,11 @@ export default function ChatBox({ roomCode, myName, myRole, phase }: ChatBoxProp
 
             return (
               <div key={`${msg}-${idx}`} className="text-sm">
-                <span className={isMe ? 'text-cyan-400 font-medium' : 'text-slate-400'}>
+                <span
+                  className={
+                    isMe ? "text-cyan-400 font-medium" : "text-slate-400"
+                  }
+                >
                   {msg}
                 </span>
               </div>
