@@ -127,7 +127,7 @@ class GameStateMachine {
       this._transition('GAME_OVER');
       this.winner = 'evil';
       this.winReason = 'Five consecutive teams rejected.';
-      return this.getState();
+      return { resolved: true, ...this.getState() };
     } else {
       this._transition('VOTE_FAILED');
     }
