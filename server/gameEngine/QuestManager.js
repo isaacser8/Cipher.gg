@@ -269,7 +269,26 @@ class QuestManager {
     }
 
     /**
-     * Get current game state 
+     * Re-key proposedTeam/teamVotes/questVotes after a player's socket.id changes on reconnect.
+     */
+    remapPlayerId(oldId, newId) {
+        if (!oldId || !newId || oldId === newId) return;
+
+        this.proposedTeam = this.proposedTeam.map((id) => (id === oldId ? newId : id));
+
+        if (this.teamVotes.has(oldId)) {
+            this.teamVotes.set(newId, this.teamVotes.get(oldId));
+            this.teamVotes.delete(oldId);
+        }
+
+        if (this.questVotes.has(oldId)) {
+            this.questVotes.set(newId, this.questVotes.get(oldId));
+            this.questVotes.delete(oldId);
+        }
+    }
+
+    /**
+     * Get current game state
      */
     getGameState() {
         const currentQuestConfig = this.questConfig[this.currentQuest];

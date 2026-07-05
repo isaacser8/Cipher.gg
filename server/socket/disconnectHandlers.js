@@ -1,4 +1,4 @@
-const { rooms, deleteRoom } = require("../services/roomStore");
+const { rooms, activeGames, deleteRoom } = require("../services/roomStore");
 
 function registerDisconnectHandlers(io, socket) {
   socket.on("disconnect", () => {
@@ -12,9 +12,18 @@ function registerDisconnectHandlers(io, socket) {
       (player) => player.name === displayName,
     );
 
-    if (leavingPlayer) {
+    // Only mark disconnected if this socket is still the roster's current
+    // socket for that player — a belated/out-of-order disconnect from a
+    // socket that's already been superseded by a reconnect must not undo it.
+    if (leavingPlayer && leavingPlayer.id === socket.id) {
       leavingPlayer.isConnected = false;
     }
+
+    // Mid-game disconnects get a much longer grace period than lobby ones:
+    // a real reconnect (phone lock, WiFi drop) realistically takes longer
+    // than a few seconds, and evicting mid-game is a one-way door (rejoining
+    // an active game is rejected once the player leaves the roster).
+    const gracePeriodMs = activeGames[roomCode] ? 45000 : 3000;
 
     setTimeout(() => {
       if (!rooms[roomCode]) return;
@@ -23,7 +32,7 @@ function registerDisconnectHandlers(io, socket) {
         (roomPlayer) => roomPlayer.name === displayName,
       );
 
-      if (!player || player.isConnected) return;
+      if (!player || player.id !== socket.id || player.isConnected) return;
 
       rooms[roomCode] = rooms[roomCode].filter(
         (roomPlayer) => roomPlayer.name !== displayName,
@@ -43,7 +52,7 @@ function registerDisconnectHandlers(io, socket) {
       } else {
         io.to(roomCode).emit("roster_update", rooms[roomCode]);
       }
-    }, 3000);
+    }, gracePeriodMs);
   });
 }
 

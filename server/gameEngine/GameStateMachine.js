@@ -201,6 +201,26 @@ class GameStateMachine {
     return this.getState();
   }
 
+  // Reconnection support
+
+  // Re-key all id-keyed game state after a player's socket.id changes on reconnect.
+  remapPlayerId(oldId, newId) {
+    if (!oldId || !newId || oldId === newId) return;
+
+    if (this.roleAssignments?.has(oldId)) {
+      const roleData = this.roleAssignments.get(oldId);
+      this.roleAssignments.delete(oldId);
+      this.roleAssignments.set(newId, roleData);
+    }
+
+    if (this.confirmedPlayers.delete(oldId)) {
+      this.confirmedPlayers.add(newId);
+    }
+
+    this.questManager?.remapPlayerId(oldId, newId);
+    this.assassinationManager?.remapPlayerId(oldId, newId);
+  }
+
   // Serialisation
 
   getState() {

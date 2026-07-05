@@ -142,9 +142,18 @@ export default function Game() {
       });
     });
 
+    // join_room (not join_game_dashboard) is what actually re-associates this
+    // socket with the room and triggers the server-side reconnect resync.
+    const handleReconnect = () => {
+      socket.emit("join_room", { roomCode, displayName: myName, action: "join" });
+    };
+
+    socket.io.on("reconnect", handleReconnect);
+
     return () => {
       socket.off("role_assigned");
       socket.off("game_state_update");
+      socket.io.off("reconnect", handleReconnect);
     };
   }, [socket, roomCode, myName]);
 
