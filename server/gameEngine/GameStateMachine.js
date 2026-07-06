@@ -221,6 +221,18 @@ class GameStateMachine {
     this.assassinationManager?.remapPlayerId(oldId, newId);
   }
 
+  forceAbandon(reason = "Match abandoned due to player disconnect.") {
+    if (this.currentState === "GAME_OVER") {
+      return this.getState();
+    }
+
+    this._transition("GAME_OVER");
+    this.winner = "abandoned";
+    this.winReason = reason;
+
+    return this.getState();
+  }
+
   // Serialisation
 
   getState() {

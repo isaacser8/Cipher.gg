@@ -7,6 +7,10 @@ async function updateUserStatsAfterMatch({
   winner,
   assassinationState,
 }) {
+  if (winner === "abandoned") {
+    return;
+  }
+  
   const operations = [];
 
   for (const player of roomPlayers) {

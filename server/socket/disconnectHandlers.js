@@ -1,4 +1,6 @@
 const { rooms, activeGames, deleteRoom } = require("../services/roomStore");
+const { saveMatchRecord } = require("../services/matchService");
+const { broadcastGameState } = require("../services/gameStatePresenter");
 
 function registerDisconnectHandlers(io, socket) {
   socket.on("disconnect", () => {
@@ -23,9 +25,17 @@ function registerDisconnectHandlers(io, socket) {
     // a real reconnect (phone lock, WiFi drop) realistically takes longer
     // than a few seconds, and evicting mid-game is a one-way door (rejoining
     // an active game is rejected once the player leaves the roster).
-    const gracePeriodMs = activeGames[roomCode] ? 45000 : 3000;
+    const hasActiveGame =
+      activeGames[roomCode] &&
+      activeGames[roomCode].getState().phase !== "GAME_OVER";
+    
+    const gracePeriodMs = hasActiveGame
+      ? process.env.NODE_ENV === "test"
+        ? 100 
+        : 45000 
+      : 3000;
 
-    setTimeout(() => {
+    setTimeout(async () => {
       if (!rooms[roomCode]) return;
 
       const player = rooms[roomCode].find(
@@ -33,6 +43,30 @@ function registerDisconnectHandlers(io, socket) {
       );
 
       if (!player || player.id !== socket.id || player.isConnected) return;
+
+      const game = activeGames[roomCode];
+
+      if (game && game.getState().phase !== "GAME_OVER") {
+        try {
+          const result = game.forceAbandon(
+            `Match abandoned because ${displayName} disconnected and did not return in time.`,
+          );
+
+          await saveMatchRecord({
+            roomCode,
+            gameResult: result,
+            game,
+            roomPlayers: rooms[roomCode] || [],
+          });
+
+          io.to(roomCode).emit("game_over", result);
+          broadcastGameState(io, roomCode);
+        } catch (err) {
+          console.error("❌ Error abandoning match:", err);
+        }
+
+        return;
+      }
 
       rooms[roomCode] = rooms[roomCode].filter(
         (roomPlayer) => roomPlayer.name !== displayName,
