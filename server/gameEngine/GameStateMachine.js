@@ -201,6 +201,25 @@ class GameStateMachine {
     return this.getState();
   }
 
+  // Abandonment
+
+  /**
+   * Force-end the game immediately from whatever phase it's currently in.
+   *
+   * Idempotent: calling this on an already-GAME_OVER machine is a no-op, so
+   * a second player being evicted around the same time in the same room
+   * can't re-save an already-ended game.
+   */
+  forceAbandon(reason) {
+    if (this.currentState === 'GAME_OVER') return this.getState();
+
+    this._transition('GAME_OVER');
+    this.winner = 'abandoned';
+    this.winReason = reason;
+
+    return this.getState();
+  }
+
   // Reconnection support
 
   // Re-key all id-keyed game state after a player's socket.id changes on reconnect.
