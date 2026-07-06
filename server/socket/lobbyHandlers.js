@@ -138,7 +138,11 @@ function registerLobbyHandlers(io, socket) {
 
       socket.to(roomCode).emit("player_joined", { user: safeName });
     } else {
-      existingPlayer.id = socket.id;
+      const oldId = existingPlayer.id;
+      const newId = socket.id;
+      const idChanged = oldId !== newId;
+
+      existingPlayer.id = newId;
       existingPlayer.isConnected = true;
       existingPlayer.isReady = false;
 
@@ -148,6 +152,16 @@ function registerLobbyHandlers(io, socket) {
 
       if (mongoDbId) {
         existingPlayer.dbId = mongoDbId;
+      }
+
+      if (idChanged && activeGames[roomCode]) {
+        activeGames[roomCode].remapPlayerId(oldId, newId);
+
+        const roleData = activeGames[roomCode].roleAssignments?.get(newId);
+
+        if (roleData?.team === "evil") {
+          socket.join(`${roomCode}_EVIL`);
+        }
       }
     }
 

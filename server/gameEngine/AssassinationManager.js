@@ -142,7 +142,21 @@ class AssassinationManager {
     }
 
     /**
-     * Get current assassination state 
+     * Re-key the assassin/merlin/target snapshots after a player's socket.id
+     * changes on reconnect. `roleAssignments` is the same Map reference as
+     * GameStateMachine.roleAssignments, so that Map is already fixed by the
+     * time this runs — only these three scalar snapshots need updating.
+     */
+    remapPlayerId(oldId, newId) {
+        if (!oldId || !newId || oldId === newId) return;
+
+        if (this.assassinId === oldId) this.assassinId = newId;
+        if (this.merlinId === oldId) this.merlinId = newId;
+        if (this.targetId === oldId) this.targetId = newId;
+    }
+
+    /**
+     * Get current assassination state
      */
     getState() {
         return {

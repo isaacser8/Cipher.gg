@@ -89,9 +89,21 @@ export default function Lobby() {
       setSystemLogs((prev) => [...prev, `[CRITICAL]: Connection lost. Re-establishing...`]);
     });
 
+    const handleReconnect = () => {
+      socket.emit('join_room', {
+        roomCode: roomCode,
+        displayName: myName,
+        action: action,
+        clerkId,
+      });
+      setSystemLogs((prev) => [...prev, `[SYS]: Connection re-established.`]);
+    };
+
+    socket.io.on('reconnect', handleReconnect);
+
     socket.on('game_started', () => {
-      navigate(`/game/${roomCode}`, { 
-        state: { displayName: myName } 
+      navigate(`/game/${roomCode}`, {
+        state: { displayName: myName }
       });
     });
 
@@ -105,6 +117,7 @@ export default function Lobby() {
       socket.off('player_ready_log');
       socket.off('receive_message');
       socket.off('disconnect');
+      socket.io.off('reconnect', handleReconnect);
       socket.off('game_started');
     };
   }, [socket, isLoaded, resolvedName, myName, navigate, roomCode, action, clerkId]);
