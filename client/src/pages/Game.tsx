@@ -412,7 +412,7 @@ export default function Game() {
         </div>
         <div className="lg:col-span-4 flex flex-col gap-6">
           <RoleCardPanel myRole={myRole} />
-          <ChatBox roomCode={roomCode!} myName={myName} myRole={myRole} phase={phase} />
+          <ChatBox myName={myName} myRole={myRole} phase={phase} />
           <PrivateNotepad gameId={gameId} myName={myName} />
         </div>
       </div>
