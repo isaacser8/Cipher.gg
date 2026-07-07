@@ -64,8 +64,6 @@ function registerDisconnectHandlers(io, socket) {
         } catch (err) {
           console.error("❌ Error abandoning match:", err);
         }
-
-        return;
       }
 
       rooms[roomCode] = rooms[roomCode].filter(
