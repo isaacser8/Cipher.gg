@@ -47,11 +47,10 @@ export default function Home() {
     shouldAutoStart: true,
   });
 
-  useEffect(() => {
-    if (runTutorial && currentStep.targetId === 'room-code-input') {
-      setMode('join');
-    }
-  }, [runTutorial, currentStep.targetId]);
+  const handleStartHomeTutorial = () => {
+    setMode('join');
+    startTutorial();
+  };
 
   const [showCipherGuide, setShowCipherGuide] = useState(false);
 
@@ -258,7 +257,7 @@ export default function Home() {
           <div className="mt-6 flex justify-center gap-6">
             <button
               type="button"
-              onClick={startTutorial}
+              onClick={handleStartHomeTutorial}
               className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-cyan-300 transition-colors flex items-center gap-2"
             >
               <HelpCircle className="w-3.5 h-3.5" />
