@@ -53,7 +53,7 @@ interface GameState {
   currentQuest: number;
   votesRejected: number;
   players: Player[];
-  winner?: "good" | "evil" | null;
+  winner?: "good" | "evil" | "abandoned" | null;
   questsWon?: { good: number; evil: number };
   proposedTeam?: string[];
   currentLeader?: { id: string; name: string };
