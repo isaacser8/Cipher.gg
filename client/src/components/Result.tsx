@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Crown, Skull, AlertTriangle, WifiOff } from 'lucide-react';
+import { Crown, Skull, WifiOff } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import type { Player } from '../types/game';
 
@@ -23,53 +23,11 @@ export default function Result({
   const navigate = useNavigate();
 
   const isAbandoned = winner === 'abandoned';
-  const isAssassination = winner === 'evil' && (winReason?.toLowerCase().includes('assassin') || winReason?.toLowerCase().includes('merlin'));
 
-  const isAssassination = 
-    isEvilWin && 
-    (winReason?.toLowerCase().includes('assassin') || 
-    winReason?.toLowerCase().includes('merlin'));
-
-  const resultTheme = isAbandoned
-    ? {
-        glow: 'bg-amber-500',
-        border: 'border-amber-500/50',
-        shadow: 'shadow-[0_0_80px_rgba(245,158,11,0.2)]',
-        icon: 'text-amber-400 drop-shadow-[0_0_30px_rgba(245,158,11,0.5)]',
-        titleGradient: 'from-amber-300 to-orange-500',
-        subtitle: 'text-amber-300/90',
-      }
-    : isGoodWin
-      ? {
-          glow: 'bg-emerald-500',
-          border: 'border-emerald-500/50',
-          shadow: 'shadow-[0_0_80px_rgba(16,185,129,0.2)]',
-          icon: 'text-emerald-400 drop-shadow-[0_0_30px_rgba(16,185,129,0.5)]',
-          titleGradient: 'from-emerald-400 to-cyan-400',
-          subtitle: 'text-emerald-400/90',
-        }
-      : {
-          glow: 'bg-rose-500',
-          border: 'border-rose-500/50',
-          shadow: 'shadow-[0_0_80px_rgba(244,63,94,0.2)]',
-          icon: 'text-rose-500 drop-shadow-[0_0_30px_rgba(244,63,94,0.5)]',
-          titleGradient: 'from-rose-500 to-purple-500',
-          subtitle: 'text-rose-400/90',
-        };
-
-  const resultTitle = isAbandoned
-    ? 'Match Abandoned'
-    : isGoodWin
-      ? 'Resistance Victorious'
-      : isAssassination
-        ? 'Merlin Assassinated'
-        : 'Resistance Compromised';
-
-  const resultSubtitle = isAbandoned
-    ? winReason || 'A player disconnected and did not return in time.'
-    : isGoodWin
-      ? winReason || 'The firewall holds.'
-      : winReason || 'The system is compromised.';
+  const isAssassination =
+    winner === 'evil' &&
+    (winReason?.toLowerCase().includes('assassin') ||
+      winReason?.toLowerCase().includes('merlin'));
   
   return (
     <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex items-center justify-center p-4">

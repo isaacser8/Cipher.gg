@@ -32,12 +32,14 @@ export default function BeginnerTutorial({
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
 
   useEffect(() => {
-    if (!isOpen || !targetId) {
-      setTargetRect(null);
-      return;
-    }
+    let frameId: number;
 
     const updateTarget = () => {
+      if (!isOpen || !targetId) {
+        setTargetRect(null);
+        return;
+      }
+
       const element = document.querySelector(`[data-tutorial="${targetId}"]`);
 
       if (!element) {
@@ -63,12 +65,13 @@ export default function BeginnerTutorial({
       window.scrollTo(0, window.scrollY);
     };
 
-    updateTarget();
+    frameId = window.requestAnimationFrame(updateTarget);
 
     window.addEventListener('resize', updateTarget);
     window.addEventListener('scroll', updateTarget, true);
 
     return () => {
+      window.cancelAnimationFrame(frameId);
       window.removeEventListener('resize', updateTarget);
       window.removeEventListener('scroll', updateTarget, true);
     };

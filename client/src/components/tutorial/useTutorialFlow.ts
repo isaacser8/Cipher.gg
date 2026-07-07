@@ -22,10 +22,14 @@ export function useTutorialFlow({
   const currentStep = steps[tutorialStep];
 
   useEffect(() => {
-    if (shouldAutoStart && !hasCompletedTutorial) {
+    if (!shouldAutoStart || hasCompletedTutorial) return;
+
+    const frameId = window.requestAnimationFrame(() => {
       setTutorialStep(0);
       setRunTutorial(true);
-    }
+    });
+
+    return () => window.cancelAnimationFrame(frameId);
   }, [shouldAutoStart, hasCompletedTutorial]);
 
   const startTutorial = () => {
