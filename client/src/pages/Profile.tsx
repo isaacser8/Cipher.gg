@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-react';
 import { useNavigate } from 'react-router-dom';
 import {
   Shield,
@@ -19,13 +19,15 @@ const API_BASE_URL =
 type ProfileTab = 'overview' | 'history' | 'friends';
 
 export default function Profile() {
-  const { user, isLoaded, isSignedIn } = useUser();
-  const navigate = useNavigate();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeTab, setActiveTab] = useState<ProfileTab>('overview');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  const { user, isLoaded, isSignedIn } = useUser();
+  const { getToken } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!isLoaded) return;
@@ -33,31 +35,33 @@ export default function Profile() {
     const clerkUserId = user?.id;
 
     if (!isSignedIn || !clerkUserId) {
-        navigate('/');
-        return;
+      navigate('/');
+      return;
     }
 
-    const username =
-        user?.firstName ||
-        user?.fullName ||
-        user?.primaryEmailAddress?.emailAddress ||
-        'New Agent';
-
     async function fetchProfile() {
-        try {
+      try {
         setIsLoading(true);
         setError('');
 
-        const response = await fetch(
-          `${API_BASE_URL}/api/profile/${clerkUserId}?username=${encodeURIComponent(username)}`,
-        );
+        const token = await getToken();
+
+        const response = await fetch(`${API_BASE_URL}/api/profile/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
 
         if (!response.ok) {
           throw new Error('Failed to load profile.');
         }
 
         const data = await response.json();
-        setProfile(data.profile);
+
+        setProfile({
+          ...data.user,
+          recentMatches: data.recentMatches ?? [],
+        });
       } catch (err) {
         console.error(err);
         setError('Unable to load profile dashboard.');
@@ -67,15 +71,7 @@ export default function Profile() {
     }
 
     fetchProfile();
-  }, [
-    isLoaded,
-    isSignedIn,
-    user?.id,
-    user?.firstName,
-    user?.fullName,
-    user?.primaryEmailAddress?.emailAddress,
-    navigate,
-  ]);
+  }, [isLoaded, isSignedIn, user?.id, getToken, navigate]);
 
   if (!isLoaded || isLoading) {
     return (
