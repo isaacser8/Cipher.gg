@@ -10,9 +10,43 @@ const matchSchema = new mongoose.Schema(
     questHistory: [
       {
         questNumber: Number,
+        team: [String],
+        leader: {
+          id: String,
+          name: String,
+          isHost: Boolean,
+          isReady: Boolean,
+          isConnected: Boolean,
+        },
         succeeded: Boolean,
         successCount: Number,
         failCount: Number,
+        teamVotes: {
+          type: Map,
+          of: String,
+        },
+        teamVoteHistory: [
+          {
+            attemptNumber: Number,
+            questNumber: Number,
+            leader: {
+              id: String,
+              name: String,
+              isHost: Boolean,
+              isReady: Boolean,
+              isConnected: Boolean,
+            },
+            proposedTeam: [String],
+            votes: {
+              type: Map,
+              of: String,
+            },
+            approvals: Number,
+            rejections: Number,
+            approved: Boolean,
+            rejected: Boolean,
+          },
+        ],
       },
     ],
 

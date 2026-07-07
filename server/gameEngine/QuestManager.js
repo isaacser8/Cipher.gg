@@ -25,6 +25,7 @@ class QuestManager {
         this.questVotes = new Map(); // playerId -> success | fail
 
         this.questHistory = []; 
+        this.currentQuestVoteHistory = [];
     }
 
     /**
@@ -121,11 +122,26 @@ class QuestManager {
 
         const approved = approvals > rejections; 
 
+        const voteRecord = {
+            attemptNumber: this.currentQuestVoteHistory.length + 1,
+            questNumber: this.currentQuest,
+            leader: this.players[this.currentLeaderIndex],
+            proposedTeam: [...this.proposedTeam],
+            votes: Object.fromEntries(this.teamVotes),
+            approvals,
+            rejections,
+            approved,
+            rejected: !approved,
+        };
+
+        this.currentQuestVoteHistory.push(voteRecord);
+
         const result = {
             approved, 
             approvals, 
             rejections, 
-            votes: Object.fromEntries(this.teamVotes)
+            votes: Object.fromEntries(this.teamVotes),
+            voteRecord,
         };
 
         if(!approved) {
@@ -208,7 +224,8 @@ class QuestManager {
             succeeded: questSucceeded, 
             failCount, 
             successCount,
-            teamVotes: Object.fromEntries(this.teamVotes)
+            teamVotes: Object.fromEntries(this.teamVotes),
+            teamVoteHistory: [...this.currentQuestVoteHistory],
         });
 
         const result = {
@@ -254,6 +271,7 @@ class QuestManager {
         this.questVotes.clear();
         this.proposedTeam = []; 
         this.teamVotes.clear(); 
+        this.currentQuestVoteHistory = [];
 
         // Move to next quest 
         this.currentQuest += 1;
@@ -285,6 +303,66 @@ class QuestManager {
             this.questVotes.set(newId, this.questVotes.get(oldId));
             this.questVotes.delete(oldId);
         }
+
+        this.currentQuestVoteHistory = this.currentQuestVoteHistory.map((attempt) => {
+            const updatedVotes = { ...attempt.votes };
+
+            if (Object.prototype.hasOwnProperty.call(updatedVotes, oldId)) {
+                updatedVotes[newId] = updatedVotes[oldId];
+                delete updatedVotes[oldId];
+            }
+
+            return {
+                ...attempt,
+                proposedTeam: attempt.proposedTeam.map((id) =>
+                    id === oldId ? newId : id,
+                ),
+                leader:
+                    attempt.leader?.id === oldId
+                        ? { ...attempt.leader, id: newId }
+                        : attempt.leader,
+                votes: updatedVotes,
+            };
+        });
+
+        this.questHistory = this.questHistory.map((quest) => {
+            const updatedTeamVotes = { ...(quest.teamVotes || {}) };
+
+            if (Object.prototype.hasOwnProperty.call(updatedTeamVotes, oldId)) {
+                updatedTeamVotes[newId] = updatedTeamVotes[oldId];
+                delete updatedTeamVotes[oldId];
+            }
+
+            return {
+                ...quest,
+                team: quest.team.map((id) => (id === oldId ? newId : id)),
+                leader:
+                    quest.leader?.id === oldId
+                        ? { ...quest.leader, id: newId }
+                        : quest.leader,
+                teamVotes: updatedTeamVotes,
+                teamVoteHistory: (quest.teamVoteHistory || []).map((attempt) => {
+                    const updatedVotes = { ...attempt.votes };
+
+                    if (Object.prototype.hasOwnProperty.call(updatedVotes, oldId)) {
+                        updatedVotes[newId] = updatedVotes[oldId];
+                        delete updatedVotes[oldId];
+                    }
+
+                    return {
+                        ...attempt,
+                        proposedTeam: attempt.proposedTeam.map((id) =>
+                            id === oldId ? newId : id,
+                        ),
+                        leader:
+                            attempt.leader?.id === oldId
+                                ? { ...attempt.leader, id: newId }
+                                : attempt.leader,
+                        votes: updatedVotes,
+                    };
+                }),
+            };
+        });
     }
 
     /**
