@@ -1,3 +1,4 @@
+import CipherGuideModal from '../components/guides/CipherGuideModal';
 import BeginnerTutorial from '../components/tutorial/BeginnerTutorial';
 import { useTutorialFlow } from '../components/tutorial/useTutorialFlow';
 import { homeTutorialSteps } from '../components/tutorial/tutorialSteps';
@@ -39,11 +40,20 @@ export default function Home() {
     startTutorial,
     handleNextTutorialStep,
     handlePreviousTutorialStep,
+    handleSkipTutorial,
   } = useTutorialFlow({
     key: 'home',
     steps: homeTutorialSteps,
-    shouldAutoStart: isSignedIn,
+    shouldAutoStart: true,
   });
+
+  useEffect(() => {
+    if (runTutorial && currentStep.targetId === 'room-code-input') {
+      setMode('join');
+    }
+  }, [runTutorial, currentStep.targetId]);
+
+  const [showCipherGuide, setShowCipherGuide] = useState(false);
 
   useEffect(() => {
     if (location.state?.redirectedFrom) {
@@ -103,6 +113,12 @@ export default function Home() {
         targetId={currentStep.targetId}
         onNext={handleNextTutorialStep}
         onBack={handlePreviousTutorialStep}
+        onSkip={handleSkipTutorial}
+      />
+
+      <CipherGuideModal
+        isOpen={showCipherGuide}
+        onClose={() => setShowCipherGuide(false)}
       />
 
       {/* Background Ambience */}
@@ -239,7 +255,7 @@ export default function Home() {
               {mode === 'host' ? 'START SESSION' : 'JOIN SESSION'} <ArrowRight className="w-5 h-5" />
             </motion.button>
           </form>
-          <div className="mt-6 flex justify-center">
+          <div className="mt-6 flex justify-center gap-6">
             <button
               type="button"
               onClick={startTutorial}
@@ -247,6 +263,14 @@ export default function Home() {
             >
               <HelpCircle className="w-3.5 h-3.5" />
               Replay Tutorial
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowCipherGuide(true)}
+              className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-purple-300 transition-colors flex items-center gap-2"
+            >
+              How to Play
             </button>
           </div>
         </div>

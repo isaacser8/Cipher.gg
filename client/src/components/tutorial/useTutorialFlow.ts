@@ -52,6 +52,12 @@ export function useTutorialFlow({
     setTutorialStep((currentStepIndex) => Math.max(currentStepIndex - 1, 0));
   };
 
+  const handleSkipTutorial = () => {
+    setRunTutorial(false);
+    setTutorialStep(0);
+    completeTutorial();
+  };
+
   return {
     hasCompletedTutorial,
     runTutorial,
@@ -61,5 +67,6 @@ export function useTutorialFlow({
     startTutorial,
     handleNextTutorialStep,
     handlePreviousTutorialStep,
+    handleSkipTutorial,
   };
 }

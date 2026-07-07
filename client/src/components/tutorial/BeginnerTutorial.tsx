@@ -10,6 +10,7 @@ interface BeginnerTutorialProps {
   targetId?: string;
   onNext: () => void;
   onBack?: () => void;
+  onSkip?: () => void;
 }
 
 interface TargetRect {
@@ -28,6 +29,7 @@ export default function BeginnerTutorial({
   targetId,
   onNext,
   onBack,
+  onSkip,
 }: BeginnerTutorialProps) {
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
 
@@ -59,8 +61,6 @@ export default function BeginnerTutorial({
         block: 'center',
         inline: 'nearest',
       });
-
-      window.scrollTo(0, window.scrollY);
     };
 
     const frameId = window.requestAnimationFrame(updateTarget);
@@ -85,7 +85,7 @@ export default function BeginnerTutorial({
       : 'items-start pt-10';
 
   return (
-    <div className="fixed inset-0 z-[10000] pointer-events-none">
+    <div className="fixed inset-0 z-[10000] pointer-events-auto">
       <div className="absolute inset-0 bg-black/50" />
 
       {targetRect && (
@@ -135,18 +135,13 @@ export default function BeginnerTutorial({
               Back
             </button>
 
-            <div className="flex gap-1.5">
-              {Array.from({ length: totalSteps }).map((_, index) => (
-                <span
-                  key={index}
-                  className={`h-1.5 rounded-full transition-all ${
-                    index === step
-                      ? 'w-6 bg-cyan-400'
-                      : 'w-1.5 bg-slate-700'
-                  }`}
-                />
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={onSkip}
+              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
+            >
+              Skip
+            </button>
 
             <button
               type="button"

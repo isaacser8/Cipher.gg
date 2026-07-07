@@ -1,3 +1,4 @@
+import CipherGuideModal from '../components/guides/CipherGuideModal';
 import BeginnerTutorial from '../components/tutorial/BeginnerTutorial';
 import { useTutorialFlow } from '../components/tutorial/useTutorialFlow';
 import { lobbyTutorialSteps } from '../components/tutorial/tutorialSteps';
@@ -46,11 +47,14 @@ export default function Lobby() {
     startTutorial,
     handleNextTutorialStep,
     handlePreviousTutorialStep,
+    handleSkipTutorial,
   } = useTutorialFlow({
     key: 'lobby',
     steps: lobbyTutorialSteps,
     shouldAutoStart: Boolean(resolvedName),
   });
+
+  const [showCipherGuide, setShowCipherGuide] = useState(false);
 
   useEffect(() => {
     if (!socket || !isLoaded || !resolvedName) return;
@@ -251,14 +255,20 @@ export default function Lobby() {
         targetId={currentStep.targetId}
         onNext={handleNextTutorialStep}
         onBack={handlePreviousTutorialStep}
+        onSkip={handleSkipTutorial}
       />
+
+    <CipherGuideModal
+      isOpen={showCipherGuide}
+      onClose={() => setShowCipherGuide(false)}
+    />
 
       {/* Background Glows */}
       <div className="absolute top-[20%] left-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* --- Navigation Bar --- */}
-      <header className="relative z-10 w-full max-w-[1200px] mx-auto flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+      <header className="relative z-10 w-full max-w-[1200px] mx-auto flex items-center justify-between mb-3 pb-4 border-b border-white/5">
         <button 
             onClick={handleLeaveLobby} 
             className="flex items-center gap-3 hover:opacity-75 transition-opacity cursor-pointer focus:outline-none"
@@ -286,6 +296,24 @@ export default function Lobby() {
           </button>
         </div>
       </header>
+
+      <div className="relative z-10 w-full max-w-[1200px] mx-auto flex justify-end gap-3 mb-6">
+        <button
+          type="button"
+          onClick={startTutorial}
+          className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-cyan-300 transition-colors"
+        >
+          Replay Tutorial
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowCipherGuide(true)}
+          className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-purple-300 transition-colors"
+        >
+          How to Play
+        </button>
+      </div>
 
       {/* --- MAIN GRID --- */}
       <motion.div 
@@ -488,17 +516,9 @@ export default function Lobby() {
           >
             <div className="flex flex-col items-center">
               <span className="text-lg">
-                {!hasCompletedTutorial ? 'Complete Tutorial' : isReady ? 'Unready' : 'Ready Up'}
+                {!hasCompletedTutorial ? 'Skip Tutorial' : isReady ? 'Unready' : 'Ready Up'}
               </span>
             </div>
-          </button>
-
-          <button
-            type="button"
-            onClick={startTutorial}
-            className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-cyan-300 transition-colors"
-          >
-            Replay Tutorial
           </button>
         </div>
 

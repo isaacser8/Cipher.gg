@@ -1,3 +1,4 @@
+import CipherGuideModal from '../components/guides/CipherGuideModal';
 import BeginnerTutorial from '../components/tutorial/BeginnerTutorial';
 import { useTutorialFlow } from '../components/tutorial/useTutorialFlow';
 import { gameTutorialSteps } from '../components/tutorial/tutorialSteps';
@@ -133,11 +134,14 @@ export default function Game() {
     startTutorial,
     handleNextTutorialStep,
     handlePreviousTutorialStep,
+    handleSkipTutorial,
   } = useTutorialFlow({
     key: 'game',
     steps: gameTutorialSteps,
     shouldAutoStart: false,
   });
+
+  const [showCipherGuide, setShowCipherGuide] = useState(false);
 
   useEffect(() => {
     if (!socket) return;
@@ -375,13 +379,23 @@ export default function Game() {
 
   return (
     <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-x-hidden flex flex-col p-4 md:p-8">
-      <button
-        type="button"
-        onClick={startTutorial}
-        className="relative z-20 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-cyan-300 transition-colors self-end mb-2"
-      >
-        Replay Guide
-      </button>
+      <div className="relative z-20 flex justify-end gap-6 mb-2">
+        <button
+          type="button"
+          onClick={() => setShowCipherGuide(true)}
+          className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-purple-300 transition-colors"
+        >
+          How to Play
+        </button>
+
+        <button
+          type="button"
+          onClick={startTutorial}
+          className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-cyan-300 transition-colors"
+        >
+          UI Guide
+        </button>
+      </div>
 
       <BeginnerTutorial
         isOpen={runTutorial}
@@ -392,6 +406,12 @@ export default function Game() {
         targetId={currentStep.targetId}
         onNext={handleNextTutorialStep}
         onBack={handlePreviousTutorialStep}
+        onSkip={handleSkipTutorial}
+      />
+
+      <CipherGuideModal
+        isOpen={showCipherGuide}
+        onClose={() => setShowCipherGuide(false)}
       />
 
       <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none" />
