@@ -32,8 +32,6 @@ export default function BeginnerTutorial({
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
 
   useEffect(() => {
-    let frameId: number;
-
     const updateTarget = () => {
       if (!isOpen || !targetId) {
         setTargetRect(null);
@@ -65,7 +63,7 @@ export default function BeginnerTutorial({
       window.scrollTo(0, window.scrollY);
     };
 
-    frameId = window.requestAnimationFrame(updateTarget);
+    const frameId = window.requestAnimationFrame(updateTarget);
 
     window.addEventListener('resize', updateTarget);
     window.addEventListener('scroll', updateTarget, true);
