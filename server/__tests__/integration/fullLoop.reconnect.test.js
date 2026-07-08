@@ -332,6 +332,192 @@ describe("Full Loop: Reconnection", () => {
     }
   });
 
+  test("reconnect: the host retains their host status", async () => {
+    const playerCount = 5;
+    const roomCode = `TEST_RECONNECT_HOST_${Date.now()}`;
+
+    const context = await setupStartedGame({
+      playerCount,
+      port: PORT,
+      roomCode,
+      namePrefix: "RH",
+      clerkPrefix: "test_reconnect_host",
+    });
+
+    try {
+      const { sockets } = context;
+      const hostSocket = sockets[0];
+
+      const rosterPromise = waitForEvent(hostSocket, "roster_update", 10000);
+
+      const { newId } = await forceReconnect({
+        io,
+        socket: hostSocket,
+        roomCode,
+        displayName: hostSocket.agent.name,
+        clerkId: hostSocket.agent.clerkId,
+      });
+
+      const roster = await rosterPromise;
+      const me = roster.find((p) => p.name === hostSocket.agent.name);
+
+      expect(me).toBeTruthy();
+      expect(me.id).toBe(newId);
+      expect(me.isHost).toBe(true);
+    } finally {
+      disconnectSockets(context.sockets);
+    }
+  });
+
+  test("reconnect while still in the lobby: player is not evicted and the lobby remains joinable", async () => {
+    const playerCount = 5;
+    const roomCode = `TEST_RECONNECT_LOBBY_${Date.now()}`;
+    const runId = Date.now().toString().slice(-6);
+
+    const agents = Array.from({ length: playerCount }, (_, i) => ({
+      name: `RL${i + 1}_${runId}`,
+      clerkId: `test_reconnect_lobby_${runId}_${i + 1}`,
+    }));
+
+    const sockets = await createTestSockets({ agents, port: PORT });
+
+    try {
+      sockets[0].emit("join_room", {
+        roomCode,
+        displayName: agents[0].name,
+        action: "host",
+        clerkId: agents[0].clerkId,
+      });
+      await waitForEvent(sockets[0], "roster_update", 10000);
+
+      for (let i = 1; i < playerCount; i++) {
+        sockets[i].emit("join_room", {
+          roomCode,
+          displayName: agents[i].name,
+          action: "join",
+          clerkId: agents[i].clerkId,
+        });
+        await waitForEvent(sockets[i], "roster_update", 10000);
+      }
+
+      const targetSocket = sockets[2];
+
+      const rosterPromise = waitForEvent(sockets[0], "roster_update", 10000);
+
+      const { newId } = await forceReconnect({
+        io,
+        socket: targetSocket,
+        roomCode,
+        displayName: targetSocket.agent.name,
+        clerkId: targetSocket.agent.clerkId,
+      });
+
+      const roster = await rosterPromise;
+      const me = roster.find((p) => p.name === targetSocket.agent.name);
+
+      expect(me).toBeTruthy();
+      expect(me.id).toBe(newId);
+      expect(me.isConnected).toBe(true);
+
+      // Confirm the lobby is still fully functional afterward: everyone can
+      // ready up and the host can still start the game normally.
+      sockets.forEach((s) =>
+        s.emit("status_update", { roomCode, isReady: true }),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      const startPromises = sockets.map((s) =>
+        waitForEvent(s, "game_started", 10000),
+      );
+      sockets[0].emit("start_game", { roomCode });
+
+      await Promise.all(startPromises);
+    } finally {
+      disconnectSockets(sockets);
+    }
+  });
+
+  test("reconnect: two players reconnecting around the same time are both remapped correctly", async () => {
+    const playerCount = 5;
+    const roomCode = `TEST_RECONNECT_CONCURRENT_${Date.now()}`;
+
+    const context = await setupStartedGame({
+      playerCount,
+      port: PORT,
+      roomCode,
+      namePrefix: "RCC",
+      clerkPrefix: "test_reconnect_concurrent",
+    });
+
+    try {
+      const { sockets, gameState } = context;
+      const proposedTeamIds = buildFirstAvailableTeam(gameState);
+      const leaderSocket = sockets.find(
+        (s) => s.id === gameState.currentLeader.id,
+      );
+
+      const [socketA, socketB] = sockets.filter(
+        (s) => s.id !== gameState.currentLeader.id,
+      );
+      const oldIdA = socketA.id;
+      const oldIdB = socketB.id;
+
+      const [{ newId: newIdA }, { newId: newIdB }] = await Promise.all([
+        forceReconnect({
+          io,
+          socket: socketA,
+          roomCode,
+          displayName: socketA.agent.name,
+          clerkId: socketA.agent.clerkId,
+        }),
+        forceReconnect({
+          io,
+          socket: socketB,
+          roomCode,
+          displayName: socketB.agent.name,
+          clerkId: socketB.agent.clerkId,
+        }),
+      ]);
+
+      expect(newIdA).not.toBe(oldIdA);
+      expect(newIdB).not.toBe(oldIdB);
+      expect(newIdA).not.toBe(newIdB);
+
+      // Confirm the game is still fully playable: propose and approve a team
+      // using everyone's current ids, remapping the two reconnected players'
+      // ids in the originally-computed team if they happened to be on it.
+      const remapId = (id) => {
+        if (id === oldIdA) return newIdA;
+        if (id === oldIdB) return newIdB;
+        return id;
+      };
+      const currentProposedTeamIds = proposedTeamIds.map(remapId);
+
+      const proposalPromises = sockets.map((s) =>
+        waitForEvent(s, "team_proposed", 10000),
+      );
+      leaderSocket.emit("propose_team", {
+        roomCode,
+        proposedTeamIds: currentProposedTeamIds,
+      });
+      await Promise.all(proposalPromises);
+
+      const voteResolvedPromises = sockets.map((s) =>
+        waitForEvent(s, "vote_resolved", 10000),
+      );
+      sockets.forEach((s) => {
+        s.emit("submit_vote", { roomCode, vote: "approve" });
+      });
+
+      const voteResults = await Promise.all(voteResolvedPromises);
+
+      expect(voteResults[0].resolved).toBe(true);
+      expect(voteResults[0].approved).toBe(true);
+    } finally {
+      disconnectSockets(context.sockets);
+    }
+  });
+
   test("disconnect grace period: a reconnect during an active game is not evicted", async () => {
     const playerCount = 5;
     const roomCode = `TEST_RECONNECT_GRACE_${Date.now()}`;
