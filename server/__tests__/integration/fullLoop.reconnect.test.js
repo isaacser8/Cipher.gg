@@ -6,9 +6,6 @@
  * their votes, team membership, role, and (if evil) secure channel access
  * all need to be re-keyed from their old socket.id to their new one.
  *
- * These are regression tests for real bugs found by tracing every place the
- * game engine uses socket.id as a frozen Map/array key instead of reading it
- * live off the shared player-object reference.
  */
 
 process.env.NODE_ENV = "test";
@@ -31,7 +28,9 @@ const {
   approveCurrentTeam,
 } = require("../../testHelpers/questFlowHelpers");
 
-const { runThreeSuccessfulQuestsToAssassination } = require("../../testHelpers/gameFlowHelpers");
+const {
+  runThreeSuccessfulQuestsToAssassination,
+} = require("../../testHelpers/gameFlowHelpers");
 
 const {
   startIntegrationServer,
@@ -68,13 +67,19 @@ describe("Full Loop: Reconnection", () => {
     try {
       const { sockets, gameState } = context;
       const proposedTeamIds = buildFirstAvailableTeam(gameState);
-      const leaderSocket = sockets.find((s) => s.id === gameState.currentLeader.id);
+      const leaderSocket = sockets.find(
+        (s) => s.id === gameState.currentLeader.id,
+      );
 
-      const proposalPromises = sockets.map((s) => waitForEvent(s, "team_proposed", 10000));
+      const proposalPromises = sockets.map((s) =>
+        waitForEvent(s, "team_proposed", 10000),
+      );
       leaderSocket.emit("propose_team", { roomCode, proposedTeamIds });
       await Promise.all(proposalPromises);
 
-      const reconnectingSocket = sockets.find((s) => s.id !== gameState.currentLeader.id);
+      const reconnectingSocket = sockets.find(
+        (s) => s.id !== gameState.currentLeader.id,
+      );
 
       // Cast this player's vote BEFORE reconnecting, under their old id.
       reconnectingSocket.emit("submit_vote", { roomCode, vote: "approve" });
@@ -93,7 +98,9 @@ describe("Full Loop: Reconnection", () => {
       reconnectingSocket.emit("submit_vote", { roomCode, vote: "approve" });
 
       const remainingSockets = sockets.filter((s) => s !== reconnectingSocket);
-      const voteResolvedPromises = sockets.map((s) => waitForEvent(s, "vote_resolved", 10000));
+      const voteResolvedPromises = sockets.map((s) =>
+        waitForEvent(s, "vote_resolved", 10000),
+      );
 
       remainingSockets.forEach((s) => {
         s.emit("submit_vote", { roomCode, vote: "approve" });
@@ -125,9 +132,16 @@ describe("Full Loop: Reconnection", () => {
       const { sockets, gameState } = context;
       const proposedTeamIds = buildFirstAvailableTeam(gameState);
 
-      await approveCurrentTeam({ sockets, roomCode, gameState, proposedTeamIds });
+      await approveCurrentTeam({
+        sockets,
+        roomCode,
+        gameState,
+        proposedTeamIds,
+      });
 
-      const teamMemberSocket = sockets.find((s) => proposedTeamIds.includes(s.id));
+      const teamMemberSocket = sockets.find((s) =>
+        proposedTeamIds.includes(s.id),
+      );
 
       const { newId } = await forceReconnect({
         io,
@@ -190,10 +204,14 @@ describe("Full Loop: Reconnection", () => {
         await waitForEvent(sockets[i], "roster_update", 10000);
       }
 
-      sockets.forEach((s) => s.emit("status_update", { roomCode, isReady: true }));
+      sockets.forEach((s) =>
+        s.emit("status_update", { roomCode, isReady: true }),
+      );
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const startPromises = sockets.map((s) => waitForEvent(s, "game_started", 10000));
+      const startPromises = sockets.map((s) =>
+        waitForEvent(s, "game_started", 10000),
+      );
       sockets[0].emit("start_game", { roomCode });
       await Promise.all(startPromises);
 
@@ -208,20 +226,26 @@ describe("Full Loop: Reconnection", () => {
         clerkId: reconnectingSocket.agent.clerkId,
       });
 
-      // The other 4 players confirm. If the reconnect orphaned the old id in
-      // confirmedPlayers, this alone would spuriously satisfy "everyone confirmed".
       const others = sockets.filter((s) => s !== reconnectingSocket);
       others.forEach((s) => s.emit("confirm_role", { roomCode }));
 
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      sockets[0].emit("join_game_dashboard", { roomCode, name: agents[0].name });
-      const midState = await waitForEvent(sockets[0], "game_state_update", 10000);
+      sockets[0].emit("join_game_dashboard", {
+        roomCode,
+        name: agents[0].name,
+      });
+      const midState = await waitForEvent(
+        sockets[0],
+        "game_state_update",
+        10000,
+      );
 
       expect(midState.phase).toBe("ROLE_ACKNOWLEDGEMENT");
 
-      // Now the reconnected player genuinely confirms under their new id.
-      const strategyPromises = sockets.map((s) => waitForEvent(s, "game_state_update", 10000));
+      const strategyPromises = sockets.map((s) =>
+        waitForEvent(s, "game_state_update", 10000),
+      );
       reconnectingSocket.emit("confirm_role", { roomCode });
 
       const finalStates = await Promise.all(strategyPromises);
@@ -292,8 +316,13 @@ describe("Full Loop: Reconnection", () => {
 
       expect(newId).not.toBe(assassin.socketId);
 
-      const gameOverPromises = sockets.map((s) => waitForEvent(s, "game_over", 10000));
-      assassin.socket.emit("submit_assassination", { roomCode, targetId: merlin.socketId });
+      const gameOverPromises = sockets.map((s) =>
+        waitForEvent(s, "game_over", 10000),
+      );
+      assassin.socket.emit("submit_assassination", {
+        roomCode,
+        targetId: merlin.socketId,
+      });
 
       const results = await Promise.all(gameOverPromises);
 
