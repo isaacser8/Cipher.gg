@@ -98,6 +98,34 @@ const findTeamAssignment = (roleAssignments, teamName) => {
   return assignment;
 };
 
+/**
+ * Simulates a real network-level reconnect for one test socket: force-disconnects
+ * it from the server side (not socket.disconnect(), which is a manual disconnect
+ * that won't auto-reconnect), waits for the client's Manager to auto-reconnect
+ * under a new socket.id, then re-emits join_room the same way Lobby.tsx/Game.tsx
+ * do on a real 'reconnect' event.
+ */
+const forceReconnect = async ({ io, socket, roomCode, displayName, clerkId }) => {
+  const oldId = socket.id;
+
+  // Speed up the client's auto-reconnect backoff so tests aren't at the mercy
+  // of socket.io-client's default ~1s+ delay between attempts.
+  socket.io.reconnectionDelay(10);
+  socket.io.reconnectionDelayMax(50);
+
+  const reconnectPromise = new Promise((resolve) => socket.io.once('reconnect', resolve));
+
+  io.sockets.sockets.get(oldId)?.disconnect(true);
+
+  await reconnectPromise;
+
+  const rosterPromise = waitForEvent(socket, 'roster_update', 10000);
+  socket.emit('join_room', { roomCode, displayName, action: 'join', clerkId });
+  await rosterPromise;
+
+  return { oldId, newId: socket.id };
+};
+
 module.exports = {
   waitForEvent,
   createTestSockets,
@@ -105,4 +133,5 @@ module.exports = {
   collectRoleAssignments,
   findRoleAssignment,
   findTeamAssignment,
+  forceReconnect,
 };

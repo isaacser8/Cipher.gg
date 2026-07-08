@@ -29,6 +29,7 @@ async function cleanupIntegrationData() {
   await User.deleteMany({ clerkId: { $regex: "^test_vote_hammer_" } });
   await User.deleteMany({ clerkId: { $regex: "^test_persistence_" } });
   await User.deleteMany({ clerkId: { $regex: "^test_q4_" } });
+  await User.deleteMany({ clerkId: { $regex: "^test_reconnect" } });
 }
 
 async function stopIntegrationServer() {
