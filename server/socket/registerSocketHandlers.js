@@ -5,7 +5,9 @@ const { registerDisconnectHandlers } = require("./disconnectHandlers");
 
 function registerSocketHandlers(io) {
   io.on("connection", (socket) => {
-    console.log(`⚡ Agent Connected: ${socket.id}`);
+    if (process.env.NODE_ENV !== "test") {
+      console.log(`⚡ Agent Connected: ${socket.id}`);
+    }
 
     registerLobbyHandlers(io, socket);
     registerChatHandlers(io, socket);
