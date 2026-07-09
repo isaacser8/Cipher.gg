@@ -39,6 +39,8 @@ async function stopIntegrationServer() {
     await new Promise((resolve) => testServer.close(resolve));
   }
 
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
   await mongoose.disconnect();
 }
 
