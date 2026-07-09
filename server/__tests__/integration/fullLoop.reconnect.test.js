@@ -15,6 +15,7 @@ const { io } = require("../../server");
 const {
   disconnectSockets,
   waitForEvent,
+  waitForRosterEntry,
   createTestSockets,
   findRoleAssignment,
   findTeamAssignment,
@@ -395,26 +396,21 @@ describe("Full Loop: Reconnection", () => {
 
       const targetSocket = sockets[2];
 
-      // Track every roster_update the host observes
-      let latestRoster = null;
-      const onRosterUpdate = (roster) => {
-        latestRoster = roster;
-      };
-      sockets[0].on("roster_update", onRosterUpdate);
-
-      const { newId } = await forceReconnect({
-        io,
-        socket: targetSocket,
-        roomCode,
-        displayName: targetSocket.agent.name,
-        clerkId: targetSocket.agent.clerkId,
+      const hostObservedPromise = waitForRosterEntry(sockets[0], {
+        name: targetSocket.agent.name,
+        isConnected: true,
       });
 
-      sockets[0].off("roster_update", onRosterUpdate);
-
-      const me = (latestRoster || []).find(
-        (p) => p.name === targetSocket.agent.name,
-      );
+      const [{ newId }, me] = await Promise.all([
+        forceReconnect({
+          io,
+          socket: targetSocket,
+          roomCode,
+          displayName: targetSocket.agent.name,
+          clerkId: targetSocket.agent.clerkId,
+        }),
+        hostObservedPromise,
+      ]);
 
       expect(me).toBeTruthy();
       expect(me.id).toBe(newId);

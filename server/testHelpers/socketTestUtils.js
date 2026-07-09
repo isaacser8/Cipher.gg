@@ -106,9 +106,7 @@ const findTeamAssignment = (roleAssignments, teamName) => {
 
 /**
  * Waits for a roster_update whose entry for `name` actually matches the given
- * id/isConnected state, ignoring any earlier or unrelated roster_update that
- * happens to arrive first.
- *
+ * state, ignoring any earlier or unrelated roster_update
  */
 const waitForRosterEntry = (
   socket,
@@ -125,7 +123,9 @@ const waitForRosterEntry = (
 
     const onUpdate = (roster) => {
       const entry = roster.find((p) => p.name === name);
-      if (entry && entry.id === id && entry.isConnected === isConnected) {
+      const idMatches = id === undefined || entry?.id === id;
+
+      if (entry && idMatches && entry.isConnected === isConnected) {
         cleanup();
         resolve(entry);
       }
@@ -135,7 +135,9 @@ const waitForRosterEntry = (
       cleanup();
       reject(
         new Error(
-          `Timeout: Waited ${timeoutMs}ms for roster_update to reflect '${name}' with id ${id}.`,
+          `Timeout: Waited ${timeoutMs}ms for roster_update to reflect '${name}'${
+            id === undefined ? "" : ` with id ${id}`
+          }.`,
         ),
       );
     }, timeoutMs);
