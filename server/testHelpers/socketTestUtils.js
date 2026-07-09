@@ -105,10 +105,49 @@ const findTeamAssignment = (roleAssignments, teamName) => {
 };
 
 /**
+ * Waits for a roster_update whose entry for `name` actually matches the given
+ * id/isConnected state, ignoring any earlier or unrelated roster_update that
+ * happens to arrive first.
+ *
+ */
+const waitForRosterEntry = (
+  socket,
+  { name, id, isConnected = true },
+  timeoutMs = 10000,
+) => {
+  return new Promise((resolve, reject) => {
+    let timer;
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      socket.off("roster_update", onUpdate);
+    };
+
+    const onUpdate = (roster) => {
+      const entry = roster.find((p) => p.name === name);
+      if (entry && entry.id === id && entry.isConnected === isConnected) {
+        cleanup();
+        resolve(entry);
+      }
+    };
+
+    timer = setTimeout(() => {
+      cleanup();
+      reject(
+        new Error(
+          `Timeout: Waited ${timeoutMs}ms for roster_update to reflect '${name}' with id ${id}.`,
+        ),
+      );
+    }, timeoutMs);
+
+    socket.on("roster_update", onUpdate);
+  });
+};
+
+/**
  * Simulates a player reconnecting under a new socket.id: force-disconnects the
  * socket from the server side, then manually reconnects it, then re-emits
  * join_room the same way Lobby.tsx/Game.tsx do on a real 'reconnect' event.
- *
  */
 const forceReconnect = async ({
   io,
@@ -130,15 +169,22 @@ const forceReconnect = async ({
 
   await reconnectPromise;
 
-  const rosterPromise = waitForEvent(socket, "roster_update", 10000);
-  socket.emit("join_room", { roomCode, displayName, action: "join", clerkId });
-  await rosterPromise;
+  const newId = socket.id;
+  const rosterPromise = waitForRosterEntry(socket, {
+    name: displayName,
+    id: newId,
+    isConnected: true,
+  });
 
-  return { oldId, newId: socket.id };
+  socket.emit("join_room", { roomCode, displayName, action: "join", clerkId });
+  const entry = await rosterPromise;
+
+  return { oldId, newId, entry };
 };
 
 module.exports = {
   waitForEvent,
+  waitForRosterEntry,
   createTestSockets,
   disconnectSockets,
   collectRoleAssignments,

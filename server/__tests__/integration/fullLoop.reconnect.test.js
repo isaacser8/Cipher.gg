@@ -348,9 +348,7 @@ describe("Full Loop: Reconnection", () => {
       const { sockets } = context;
       const hostSocket = sockets[0];
 
-      const rosterPromise = waitForEvent(hostSocket, "roster_update", 10000);
-
-      const { newId } = await forceReconnect({
+      const { entry } = await forceReconnect({
         io,
         socket: hostSocket,
         roomCode,
@@ -358,12 +356,7 @@ describe("Full Loop: Reconnection", () => {
         clerkId: hostSocket.agent.clerkId,
       });
 
-      const roster = await rosterPromise;
-      const me = roster.find((p) => p.name === hostSocket.agent.name);
-
-      expect(me).toBeTruthy();
-      expect(me.id).toBe(newId);
-      expect(me.isHost).toBe(true);
+      expect(entry.isHost).toBe(true);
     } finally {
       disconnectSockets(context.sockets);
     }
@@ -402,7 +395,12 @@ describe("Full Loop: Reconnection", () => {
 
       const targetSocket = sockets[2];
 
-      const rosterPromise = waitForEvent(sockets[0], "roster_update", 10000);
+      // Track every roster_update the host observes
+      let latestRoster = null;
+      const onRosterUpdate = (roster) => {
+        latestRoster = roster;
+      };
+      sockets[0].on("roster_update", onRosterUpdate);
 
       const { newId } = await forceReconnect({
         io,
@@ -412,8 +410,11 @@ describe("Full Loop: Reconnection", () => {
         clerkId: targetSocket.agent.clerkId,
       });
 
-      const roster = await rosterPromise;
-      const me = roster.find((p) => p.name === targetSocket.agent.name);
+      sockets[0].off("roster_update", onRosterUpdate);
+
+      const me = (latestRoster || []).find(
+        (p) => p.name === targetSocket.agent.name,
+      );
 
       expect(me).toBeTruthy();
       expect(me.id).toBe(newId);
