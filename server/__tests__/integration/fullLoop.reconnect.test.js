@@ -395,6 +395,22 @@ describe("Full Loop: Reconnection", () => {
       }
 
       const targetSocket = sockets[2];
+      const oldIdBeforeReconnect = targetSocket.id;
+
+      // TEMP DIAGNOSTIC: log every roster_update the host sees during this
+      // window so we can see the real sequence of events
+      const onAnyRosterUpdate = (roster) => {
+        const entry = roster.find((p) => p.name === targetSocket.agent.name);
+        console.log(
+          `[DIAG ${Date.now()}] host saw roster_update; target entry:`,
+          entry ? { id: entry.id, isConnected: entry.isConnected } : "ABSENT",
+        );
+      };
+      sockets[0].on("roster_update", onAnyRosterUpdate);
+
+      console.log(
+        `[DIAG ${Date.now()}] oldIdBeforeReconnect=${oldIdBeforeReconnect}`,
+      );
 
       const hostObservedPromise = waitForRosterEntry(sockets[0], {
         name: targetSocket.agent.name,
@@ -411,6 +427,9 @@ describe("Full Loop: Reconnection", () => {
         }),
         hostObservedPromise,
       ]);
+
+      sockets[0].off("roster_update", onAnyRosterUpdate);
+      console.log(`[DIAG ${Date.now()}] newId=${newId} me.id=${me?.id}`);
 
       expect(me).toBeTruthy();
       expect(me.id).toBe(newId);
