@@ -106,11 +106,12 @@ const findTeamAssignment = (roleAssignments, teamName) => {
 
 /**
  * Waits for a roster_update whose entry for `name` actually matches the given
- * state, ignoring any earlier or unrelated roster_update
+ * state, ignoring any earlier or unrelated roster_update that happens to
+ * arrive first.
  */
 const waitForRosterEntry = (
   socket,
-  { name, id, isConnected = true },
+  { name, id = undefined, excludeId = undefined, isConnected = true },
   timeoutMs = 10000,
 ) => {
   return new Promise((resolve, reject) => {
@@ -124,8 +125,14 @@ const waitForRosterEntry = (
     const onUpdate = (roster) => {
       const entry = roster.find((p) => p.name === name);
       const idMatches = id === undefined || entry?.id === id;
+      const notExcluded = excludeId === undefined || entry?.id !== excludeId;
 
-      if (entry && idMatches && entry.isConnected === isConnected) {
+      if (
+        entry &&
+        idMatches &&
+        notExcluded &&
+        entry.isConnected === isConnected
+      ) {
         cleanup();
         resolve(entry);
       }
