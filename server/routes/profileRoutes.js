@@ -54,12 +54,18 @@ router.get("/me", async (req, res) => {
 
     const winRate =
       matchesPlayed > 0 ? Math.round((totalWins / matchesPlayed) * 100) : 0;
+    
+    const assassinationRate =
+      winsAsEvil > 0
+        ? Math.round((successfulAssassinations / winsAsEvil) * 100)
+        : 0;
 
     const recentMatches = await Match.find({
-      "players.clerkId": userId,
+      "players.userId": user._id,
     })
       .sort({ createdAt: -1 })
-      .limit(5);
+      .limit(10)
+      .select("roomCode winner winReason questHistory players createdAt");
 
     return res.json({
       user: {
@@ -70,8 +76,9 @@ router.get("/me", async (req, res) => {
           winsAsGood,
           winsAsEvil,
           totalWins,
-          winRate,
           successfulAssassinations,
+          winRate,
+          assassinationRate,
         },
       },
       recentMatches,
