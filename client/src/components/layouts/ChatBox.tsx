@@ -3,14 +3,12 @@ import { Send, MessageSquare, Search, X } from "lucide-react";
 import { useSocket } from "../../context/useSocket";
 
 interface ChatBoxProps {
-  roomCode: string;
   myName: string;
   myRole?: { role: string; team: string };
   phase?: string;
 }
 
 export default function ChatBox({
-  roomCode,
   myName,
   myRole,
   phase,
@@ -80,8 +78,6 @@ export default function ChatBox({
     if (!newMessage.trim() || !socket) return;
 
     socket.emit("send_message", {
-      roomCode,
-      sender: myName,
       message: newMessage.trim(),
       channel: effectiveChannel,
     });

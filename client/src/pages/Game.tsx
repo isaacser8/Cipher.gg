@@ -478,7 +478,7 @@ export default function Game() {
             <RoleCardPanel myRole={myRole} />
           </div>
             <div data-tutorial="game-tools" className="flex flex-col gap-6">
-              <ChatBox roomCode={roomCode!} myName={myName} myRole={myRole} phase={phase} />
+              <ChatBox myName={myName} myRole={myRole} phase={phase} />
               <PrivateNotepad gameId={gameId} myName={myName} />
             </div>
         </div>
