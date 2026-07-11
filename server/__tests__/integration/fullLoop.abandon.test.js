@@ -27,6 +27,7 @@ const {
 
 const {
   runThreeSuccessfulQuestsToAssassination,
+  runVoteHammerGame,
 } = require("../../testHelpers/gameFlowHelpers");
 
 const {
@@ -34,6 +35,8 @@ const {
   cleanupIntegrationData,
   stopIntegrationServer,
 } = require("../../testHelpers/dbTestUtils");
+
+const { activeGames } = require("../../services/roomStore");
 
 const PORT = 5006;
 
@@ -294,4 +297,100 @@ describe("Full Loop: Abandoned Match", () => {
       disconnectSockets(context.sockets);
     }
   });
+
+  test("a player who disconnects after the game already legitimately ended does not overwrite the result as abandoned", async () => {
+    const playerCount = 5;
+    const roomCode = `TEST_ABANDON_AFTER_GAMEOVER_${Date.now()}`;
+
+    const context = await runVoteHammerGame({
+      playerCount,
+      port: PORT,
+      roomCode,
+    });
+
+    try {
+      const { sockets, finalPayload } = context;
+
+      expect(finalPayload.winner).toBe("evil");
+
+      // The game already legitimately ended (5 rejected teams).
+      sockets[0].disconnect();
+
+      // Give the grace-period window (1500ms in test mode) a chance to fire,
+      // if it were somehow going to.
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const savedMatch = await Match.findOne({ roomCode });
+
+      expect(savedMatch.winner).toBe("evil");
+
+      const matches = await Match.find({ roomCode });
+
+      expect(matches).toHaveLength(1);
+    } finally {
+      disconnectSockets(context.sockets);
+    }
+  }, 15000);
+
+  test("reconnecting after the match was already abandoned starts fresh in the lobby, not the old game", async () => {
+    const playerCount = 5;
+    const roomCode = `TEST_ABANDON_LATE_RECONNECT_${Date.now()}`;
+
+    const context = await setupStartedGame({
+      playerCount,
+      port: PORT,
+      roomCode,
+      namePrefix: "ABL",
+      clerkPrefix: "test_abandon_late_reconnect",
+    });
+
+    try {
+      const { sockets, gameState } = context;
+      const proposedTeamIds = buildFirstAvailableTeam(gameState);
+
+      await approveCurrentTeam({
+        sockets,
+        roomCode,
+        gameState,
+        proposedTeamIds,
+      });
+
+      const targetSocket = sockets[1];
+      const remainingSockets = sockets.filter((s) => s !== targetSocket);
+
+      const gameOverPromises = remainingSockets.map((s) =>
+        waitForEvent(s, "game_over", 10000),
+      );
+
+      targetSocket.disconnect();
+
+      await Promise.all(gameOverPromises);
+
+      // The match is already fully abandoned by this point. Now the
+      // departed player tries to come back, too late to rejoin the game
+      const rosterPromise = waitForEvent(
+        remainingSockets[0],
+        "roster_update",
+        10000,
+      );
+
+      targetSocket.connect();
+      await waitForEvent(targetSocket, "connect", 10000);
+      targetSocket.emit("join_room", {
+        roomCode,
+        displayName: targetSocket.agent.name,
+        action: "join",
+        clerkId: targetSocket.agent.clerkId,
+      });
+
+      const roster = await rosterPromise;
+
+      // Rejoining after the match ended lands them in a freshly reset
+      // lobby, not back inside the finished game.
+      expect(roster.every((p) => p.isReady === false)).toBe(true);
+      expect(activeGames[roomCode]).toBeUndefined();
+    } finally {
+      disconnectSockets(context.sockets);
+    }
+  }, 15000);
 });
