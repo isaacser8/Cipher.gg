@@ -330,7 +330,7 @@ describe("Full Loop: Abandoned Match", () => {
     } finally {
       disconnectSockets(context.sockets);
     }
-  }, 15000);
+  });
 
   test("reconnecting after the match was already abandoned starts fresh in the lobby, not the old game", async () => {
     const playerCount = 5;
@@ -392,5 +392,5 @@ describe("Full Loop: Abandoned Match", () => {
     } finally {
       disconnectSockets(context.sockets);
     }
-  }, 15000);
+  });
 });
