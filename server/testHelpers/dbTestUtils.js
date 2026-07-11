@@ -29,6 +29,7 @@ async function cleanupIntegrationData() {
   await User.deleteMany({ clerkId: { $regex: "^test_vote_hammer_" } });
   await User.deleteMany({ clerkId: { $regex: "^test_persistence_" } });
   await User.deleteMany({ clerkId: { $regex: "^test_q4_" } });
+  await User.deleteMany({ clerkId: { $regex: "^test_reconnect" } });
 }
 
 async function stopIntegrationServer() {
@@ -37,6 +38,8 @@ async function stopIntegrationServer() {
   if (testServer.listening) {
     await new Promise((resolve) => testServer.close(resolve));
   }
+
+  await new Promise((resolve) => setTimeout(resolve, 2000));
 
   await mongoose.disconnect();
 }

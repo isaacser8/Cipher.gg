@@ -3,12 +3,14 @@ const { saveMatchRecord } = require("../services/matchService");
 const { broadcastGameState } = require("../services/gameStatePresenter");
 
 const isTestEnv = process.env.NODE_ENV === "test";
-const LOBBY_GRACE_MS = isTestEnv ? 300 : 3000;
+const LOBBY_GRACE_MS = isTestEnv ? 1500 : 3000;
 const GAME_GRACE_MS = isTestEnv ? 1500 : 45000;
 
 function registerDisconnectHandlers(io, socket) {
   socket.on("disconnect", () => {
-    console.log(`🔌 Agent Disconnected: ${socket.id}`);
+    if (!isTestEnv) {
+      console.log(`🔌 Agent Disconnected: ${socket.id}`);
+    }
 
     const { roomCode, displayName } = socket;
 
