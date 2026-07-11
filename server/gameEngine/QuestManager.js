@@ -377,6 +377,7 @@ class QuestManager {
             questsWon: { ...this.questsWon },
             proposedTeam: [...this.proposedTeam],
             questHistory: [...this.questHistory],
+            currentQuestVoteHistory: [...this.currentQuestVoteHistory],
             teamVotesCast: Array.from(this.teamVotes.keys()),
             questVotesCast: Array.from(this.questVotes.keys()),
             requiredTeamSize: currentQuestConfig.teamSize,

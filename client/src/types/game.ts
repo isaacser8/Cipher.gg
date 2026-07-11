@@ -34,9 +34,9 @@ export interface TeamVoteAttempt {
 
 export interface QuestRecord {
   questNumber: number;
-  succeeded: boolean;
-  failCount: number;
-  successCount: number;
+  succeeded?: boolean;
+  failCount?: number;
+  successCount?: number;
   team: string[];
   leader: { 
     id: string; 
