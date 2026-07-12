@@ -21,17 +21,17 @@ function registerDisconnectHandlers(io, socket) {
     );
 
     // Only mark disconnected if this socket is still the roster's current
-    // socket for that player — a belated/out-of-order disconnect from a
-    // socket that's already been superseded by a reconnect must not undo it.
+    // socket for that player
     if (leavingPlayer && leavingPlayer.id === socket.id) {
       leavingPlayer.isConnected = false;
     }
 
     // Mid-game disconnects get a much longer grace period than lobby ones:
-    // a real reconnect (phone lock, WiFi drop) realistically takes longer
-    // than a few seconds, and evicting mid-game is a one-way door (rejoining
-    // an active game is rejected once the player leaves the roster).
-    const gracePeriodMs = activeGames[roomCode] ? GAME_GRACE_MS : LOBBY_GRACE_MS;
+    const hasActiveGame =
+      activeGames[roomCode] &&
+      activeGames[roomCode].getState().phase !== "GAME_OVER";
+
+    const gracePeriodMs = hasActiveGame ? GAME_GRACE_MS : LOBBY_GRACE_MS;
 
     setTimeout(async () => {
       if (!rooms[roomCode]) return;
@@ -46,7 +46,7 @@ function registerDisconnectHandlers(io, socket) {
 
       // Mid-game permanent eviction: abandon the match BEFORE mutating the
       // roster — saveMatchRecord needs every roomPlayers entry, including
-      // the departing player, to still have a resolvable role assignment.
+      // the departing player
       if (game && game.getState().phase !== "GAME_OVER") {
         const result = game.forceAbandon(
           `Agent ${displayName} disconnected and did not reconnect in time.`,
@@ -60,7 +60,10 @@ function registerDisconnectHandlers(io, socket) {
             roomPlayers: rooms[roomCode],
           });
         } catch (err) {
-          console.error(`❌ Failed to save abandoned match for room ${roomCode}:`, err);
+          console.error(
+            `❌ Failed to save abandoned match for room ${roomCode}:`,
+            err,
+          );
         }
 
         io.to(roomCode).emit("game_over", result);

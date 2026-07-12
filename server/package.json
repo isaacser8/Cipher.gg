@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/isaacser8/Cipher.gg#readme",
   "dependencies": {
+    "@clerk/express": "^2.1.36",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",

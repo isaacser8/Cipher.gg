@@ -146,7 +146,6 @@ function registerLobbyHandlers(io, socket) {
 
       existingPlayer.id = newId;
       existingPlayer.isConnected = true;
-      existingPlayer.isReady = false;
 
       if (shouldBeHost) {
         existingPlayer.isHost = true;

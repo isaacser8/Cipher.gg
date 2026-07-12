@@ -3,7 +3,11 @@ const mongoose = require("mongoose");
 const matchSchema = new mongoose.Schema(
   {
     roomCode: { type: String, required: true },
-    winner: { type: String, enum: ["good", "evil", "abandoned"], required: true },
+    winner: { 
+      type: String, 
+      enum: ["good", "evil", "abandoned"], 
+      required: true, 
+    },
     winReason: { type: String },
 
     // Store state of the quests for the review screen
