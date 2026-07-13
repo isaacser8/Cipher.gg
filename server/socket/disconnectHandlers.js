@@ -27,18 +27,11 @@ function registerDisconnectHandlers(io, socket) {
     }
 
     // Mid-game disconnects get a much longer grace period than lobby ones:
-    // a real reconnect (phone lock, WiFi drop) realistically takes longer
-    // than a few seconds, and evicting mid-game is a one-way door (rejoining
-    // an active game is rejected once the player leaves the roster).
     const hasActiveGame =
       activeGames[roomCode] &&
       activeGames[roomCode].getState().phase !== "GAME_OVER";
-    
-    const gracePeriodMs = hasActiveGame
-      ? process.env.NODE_ENV === "test"
-        ? 100 
-        : 45000 
-      : 3000;
+
+    const gracePeriodMs = hasActiveGame ? GAME_GRACE_MS : LOBBY_GRACE_MS;
 
     setTimeout(async () => {
       if (!rooms[roomCode]) return;
