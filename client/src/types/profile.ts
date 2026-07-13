@@ -9,17 +9,18 @@ export interface ProfileStats {
 }
 
 export interface ProfileMatch {
-  _id: string;
+  id: string;
   roomCode: string;
   winner: 'good' | 'evil' | 'abandoned';
   winReason?: string;
   createdAt: string;
-  questHistory?: {
-    questNumber: number;
-    succeeded: boolean;
-    successCount: number;
-    failCount: number;
-  }[];
+  myRole: string;
+  myTeam: 'good' | 'evil' | 'unknown';
+  didWin: boolean;
+  questSummary: {
+    good: number;
+    evil: number;
+  };
 }
 
 export interface UserProfile {
