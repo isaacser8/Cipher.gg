@@ -148,6 +148,18 @@ class QuestManager {
             this.votesRejected += 1;
 
             if (this.votesRejected >= 5) {
+                this.questHistory.push({
+                    questNumber: this.currentQuest,
+                    team: [...this.proposedTeam],
+                    leader: this.players[this.currentLeaderIndex],
+                    succeeded: undefined,
+                    failCount: undefined,
+                    successCount: undefined,
+                    teamVotes: Object.fromEntries(this.teamVotes),
+                    teamVoteHistory: [...this.currentQuestVoteHistory],
+                    endedByFiveRejections: true,
+                });
+
                 return {
                     ...result,
                     evilWins: true, 

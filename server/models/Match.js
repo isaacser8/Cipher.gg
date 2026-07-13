@@ -51,6 +51,7 @@ const matchSchema = new mongoose.Schema(
             rejected: Boolean,
           },
         ],
+        endedByFiveRejections: Boolean,
       },
     ],
 

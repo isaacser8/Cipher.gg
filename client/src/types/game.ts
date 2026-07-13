@@ -44,4 +44,5 @@ export interface QuestRecord {
   };
   teamVotes?: Record<string, 'approve' | 'reject'>;
   teamVoteHistory?: TeamVoteAttempt[];
+  endedByFiveRejections?: boolean;
 }
