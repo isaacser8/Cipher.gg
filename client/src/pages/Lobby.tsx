@@ -2,14 +2,73 @@ import { useEffect, useState, useRef } from 'react';
 import { useSocket } from '../context/useSocket';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Copy, Share, Send, UserCircle, LogOut, Check } from 'lucide-react';
+import { Shield, Copy, Share, Send, UserCircle, LogOut, Check, ChevronDown } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 
 interface Player {
   id: string;
   name: string;
-  isHost: boolean; 
-  isReady: boolean; 
+  isHost: boolean;
+  isReady: boolean;
+}
+
+function TeamSizeDropdown({ value, onChange }: { value: number; onChange: (size: number) => void }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-lg pl-2.5 pr-2 py-1 text-cyan-400 text-[10px] font-bold uppercase tracking-widest hover:border-cyan-500/50 transition-colors focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/20"
+      >
+        Max {value} Agents
+        <ChevronDown className={`w-3 h-3 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.96 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 top-[calc(100%+6px)] z-20 w-36 bg-[#11151C]/95 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl shadow-black/50 overflow-hidden py-1"
+          >
+            {[5, 6, 7, 8, 9, 10].map((size) => (
+              <button
+                key={size}
+                type="button"
+                onClick={() => {
+                  onChange(size);
+                  setIsOpen(false);
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2 text-[10px] font-bold uppercase tracking-widest transition-colors ${
+                  size === value
+                    ? 'bg-cyan-500/10 text-cyan-400'
+                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                Max {size} Agents
+                {size === value && <Check className="w-3 h-3" />}
+              </button>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 export default function Lobby() {
@@ -178,8 +237,7 @@ export default function Lobby() {
     navigate('/'); 
   };
 
-  const handleTeamSizeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newSize = Number(e.target.value);
+  const handleTeamSizeChange = (newSize: number) => {
     if (socket && amIHost) {
       socket.emit('change_settings', { roomCode, teamSize: newSize });
     }
@@ -307,15 +365,7 @@ export default function Lobby() {
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex justify-between items-center">
               <span>Agents</span>
               {amIHost ? (
-                <select 
-                  value={teamSize}
-                  onChange={handleTeamSizeChange}
-                  className="bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-cyan-400 text-[10px] font-bold focus:outline-none focus:border-cyan-500 cursor-pointer"
-                >
-                  {[5, 6, 7, 8, 9, 10].map(size => (
-                    <option key={size} value={size}>Max {size} Agents</option>
-                  ))}
-                </select>
+                <TeamSizeDropdown value={teamSize} onChange={handleTeamSizeChange} />
               ) : (
                 <span className="text-cyan-400">{players.length + 1} / {teamSize}</span>
               )}
