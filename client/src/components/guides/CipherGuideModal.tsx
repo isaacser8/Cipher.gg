@@ -324,7 +324,7 @@ function WinningSection() {
       >
         <p>
           Rogue Agents win by compromising three mission nodes, forcing repeated
-          rejected teams, or successfully eliminating the Oracle if that role is
+          rejected teams, or successfully eliminating the Merlin if that role is
           active.
         </p>
       </GuideCard>
