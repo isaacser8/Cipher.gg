@@ -45,7 +45,9 @@ class GameStateMachine {
   }
 
   _transition(newState) {
-    console.log(`[FSM] ${this.currentState} → ${newState}`);
+    if (process.env.NODE_ENV !== "test") {
+      console.log(`[FSM] ${this.currentState} → ${newState}`);
+    }
     this.currentState = newState;
   }
 
@@ -238,18 +240,6 @@ class GameStateMachine {
 
     this.questManager?.remapPlayerId(oldId, newId);
     this.assassinationManager?.remapPlayerId(oldId, newId);
-  }
-
-  forceAbandon(reason = "Match abandoned due to player disconnect.") {
-    if (this.currentState === "GAME_OVER") {
-      return this.getState();
-    }
-
-    this._transition("GAME_OVER");
-    this.winner = "abandoned";
-    this.winReason = reason;
-
-    return this.getState();
   }
 
   // Serialisation

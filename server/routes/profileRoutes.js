@@ -1,35 +1,60 @@
 const express = require("express");
+const { getAuth, clerkClient } = require("@clerk/express");
 const User = require("../models/User");
 const Match = require("../models/Match");
 
 const router = express.Router();
 
-router.get("/:clerkId", async (req, res) => {
+const sanitizeUsername = (value = "") =>
+  String(value)
+    .replace(/[^a-zA-Z0-9 ]/g, "")
+    .trim()
+    .slice(0, 15);
+
+router.get("/me", async (req, res) => {
   try {
-    const { clerkId } = req.params;
+    const { isAuthenticated, userId } = getAuth(req);
 
-    if (!clerkId) {
-      return res.status(400).json({ error: "Missing Clerk ID." });
+    if (!isAuthenticated || !userId) {
+      return res.status(401).json({ error: "User not authenticated." });
     }
 
-    let user = await User.findOne({ clerkId });
+    const clerkUser = await clerkClient.users.getUser(userId);
 
-    if (!user) {
-      user = await User.create({
-        clerkId,
-        username: req.query.username || "New Agent",
-      });
-    }
+    const rawUsername =
+      clerkUser.firstName ||
+      clerkUser.username ||
+      clerkUser.fullName ||
+      clerkUser.emailAddresses?.[0]?.emailAddress ||
+      "New Agent";
+
+    const username = sanitizeUsername(rawUsername) || "New Agent";
+
+    const user = await User.findOneAndUpdate(
+      { clerkId: userId },
+      {
+        $setOnInsert: {
+          clerkId: userId,
+          username,
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      },
+    );
 
     const matchesPlayed = user.stats?.matchesPlayed ?? 0;
     const winsAsGood = user.stats?.winsAsGood ?? 0;
     const winsAsEvil = user.stats?.winsAsEvil ?? 0;
     const totalWins = winsAsGood + winsAsEvil;
-    const successfulAssassinations = user.stats?.successfulAssassinations ?? 0;
+    const successfulAssassinations =
+      user.stats?.successfulAssassinations ?? 0;
 
     const winRate =
       matchesPlayed > 0 ? Math.round((totalWins / matchesPlayed) * 100) : 0;
-
+    
     const assassinationRate =
       winsAsEvil > 0
         ? Math.round((successfulAssassinations / winsAsEvil) * 100)
@@ -43,8 +68,7 @@ router.get("/:clerkId", async (req, res) => {
       .select("roomCode winner winReason questHistory players createdAt");
 
     return res.json({
-      profile: {
-        id: user._id,
+      user: {
         clerkId: user.clerkId,
         username: user.username,
         stats: {
@@ -56,12 +80,12 @@ router.get("/:clerkId", async (req, res) => {
           winRate,
           assassinationRate,
         },
-        recentMatches,
       },
+      recentMatches,
     });
-  } catch (err) {
-    console.error("❌ Error fetching profile:", err);
-    return res.status(500).json({ error: "Failed to fetch profile." });
+  } catch (error) {
+    console.error("Profile route error:", error);
+    return res.status(500).json({ error: "Failed to load profile." });
   }
 });
 
