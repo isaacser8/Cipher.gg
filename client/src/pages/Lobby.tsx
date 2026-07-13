@@ -1,3 +1,7 @@
+import CipherGuideModal from '../components/guides/CipherGuideModal';
+import BeginnerTutorial from '../components/tutorial/BeginnerTutorial';
+import { useTutorialFlow } from '../components/tutorial/useTutorialFlow';
+import { lobbyTutorialSteps } from '../components/tutorial/tutorialSteps';
 import { useEffect, useState, useRef } from 'react';
 import { useSocket } from '../context/useSocket';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
@@ -19,8 +23,10 @@ export default function Lobby() {
   const { user, isLoaded } = useUser();
   const { socket } = useSocket(); 
   
-  const resolvedName = user?.fullName || user?.primaryEmailAddress?.emailAddress || location.state?.displayName;
-  const clerkId = user?.id || null;
+  const sanitizeAlias = (value: string) =>
+    value.replace(/[^a-zA-Z0-9 ]/g, '').slice(0, 15);
+  const resolvedName = sanitizeAlias(location.state?.displayName || '');
+  const clerkId = location.state?.clerkId || user?.id || null;
   const myName = resolvedName || 'Unknown Agent';
   const action = location.state?.action || 'join';
 
@@ -32,6 +38,23 @@ export default function Lobby() {
   const [amIHost, setAmIHost] = useState(false);
   const [teamSize, setTeamSize] = useState(10);
   const logsEndRef = useRef<HTMLDivElement>(null);
+  const {
+    hasCompletedTutorial,
+    runTutorial,
+    tutorialStep,
+    currentStep,
+    totalSteps,
+    startTutorial,
+    handleNextTutorialStep,
+    handlePreviousTutorialStep,
+    handleSkipTutorial,
+  } = useTutorialFlow({
+    key: 'lobby',
+    steps: lobbyTutorialSteps,
+    shouldAutoStart: Boolean(resolvedName),
+  });
+
+  const [showCipherGuide, setShowCipherGuide] = useState(false);
 
   useEffect(() => {
     if (!socket || !isLoaded || !resolvedName) return;
@@ -111,7 +134,7 @@ export default function Lobby() {
       socket.off('room_error');
       socket.off('settings_update');
       socket.off('roster_update');
-      socket.off('chat_history')
+      socket.off('chat_history');
       socket.off('player_joined');
       socket.off('player_left');
       socket.off('player_ready_log');
@@ -222,14 +245,30 @@ export default function Lobby() {
   const canStartGame = isEveryoneReady && isLobbyFull;
 
   return (
-    <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex flex-col p-4 md:p-8">
-      
+    <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-x-hidden flex flex-col p-4 md:p-8">
+      <BeginnerTutorial
+        isOpen={runTutorial}
+        step={tutorialStep}
+        totalSteps={totalSteps}
+        title={currentStep.title}
+        content={currentStep.content}
+        targetId={currentStep.targetId}
+        onNext={handleNextTutorialStep}
+        onBack={handlePreviousTutorialStep}
+        onSkip={handleSkipTutorial}
+      />
+
+    <CipherGuideModal
+      isOpen={showCipherGuide}
+      onClose={() => setShowCipherGuide(false)}
+    />
+
       {/* Background Glows */}
       <div className="absolute top-[20%] left-[-10%] w-[40%] h-[40%] bg-cyan-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* --- Navigation Bar --- */}
-      <header className="relative z-10 w-full max-w-[1200px] mx-auto flex items-center justify-between mb-8 pb-4 border-b border-white/5">
+      <header className="relative z-10 w-full max-w-[1200px] mx-auto flex items-center justify-between mb-3 pb-4 border-b border-white/5">
         <button 
             onClick={handleLeaveLobby} 
             className="flex items-center gap-3 hover:opacity-75 transition-opacity cursor-pointer focus:outline-none"
@@ -258,8 +297,27 @@ export default function Lobby() {
         </div>
       </header>
 
+      <div className="relative z-10 w-full max-w-[1200px] mx-auto flex justify-end gap-3 mb-6">
+        <button
+          type="button"
+          onClick={startTutorial}
+          className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-cyan-300 transition-colors"
+        >
+          Replay Tutorial
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowCipherGuide(true)}
+          className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-purple-300 transition-colors"
+        >
+          How to Play
+        </button>
+      </div>
+
       {/* --- MAIN GRID --- */}
       <motion.div 
+        data-tutorial="lobby-main"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 w-full max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow"
@@ -269,7 +327,10 @@ export default function Lobby() {
         <div className="lg:col-span-4 flex flex-col gap-6">
           
           {/* Room Info Box */}
-          <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl">
+          <div 
+            data-tutorial="lobby-room-code"
+            className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl"
+          >
             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Room Code:</h3>
             <div className="flex items-center justify-between mb-6">
               <span className="text-4xl font-black tracking-widest">{roomCode}</span>
@@ -303,7 +364,10 @@ export default function Lobby() {
           </div>
 
           {/* People in the Lobby Box */}
-          <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col">
+          <div 
+            data-tutorial="lobby-roster"
+            className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col"
+          >
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex justify-between items-center">
               <span>Agents</span>
               {amIHost ? (
@@ -369,7 +433,10 @@ export default function Lobby() {
         <div className="lg:col-span-8 flex flex-col gap-6">
           
         {/* Main Log & Chat Window */}
-        <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col relative overflow-hidden">
+        <div 
+          data-tutorial="lobby-chat"
+          className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl flex-grow flex flex-col relative overflow-hidden"
+        >
           <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4 border-b border-white/5 pb-4">
             Session Log
           </h3>
@@ -433,15 +500,24 @@ export default function Lobby() {
              
              {/* READY BUTTON */}
           <button 
-            onClick={() => setIsReady(!isReady)}
-            className={`px-12 py-4 rounded-full font-black uppercase tracking-widest shadow-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 ${
-              isReady 
-              ? 'bg-slate-800 text-slate-400 border border-white/10' 
-              : 'bg-gradient-to-r from-[#A855F7] to-[#06B6D4] text-white shadow-[0_0_40px_rgba(6,182,212,0.4)]'
+            data-tutorial="ready-button"
+            onClick={() => {
+              if (!hasCompletedTutorial) return;
+              setIsReady(!isReady);
+            }}
+            disabled={!hasCompletedTutorial}
+            className={`px-12 py-4 rounded-full font-black uppercase tracking-widest shadow-2xl transition-all duration-300 transform ${
+              !hasCompletedTutorial
+                ? 'bg-slate-800/50 text-slate-600 border border-slate-700 cursor-not-allowed'
+                : isReady 
+                  ? 'bg-slate-800 text-slate-400 border border-white/10 hover:scale-105 active:scale-95' 
+                  : 'bg-gradient-to-r from-[#A855F7] to-[#06B6D4] text-white shadow-[0_0_40px_rgba(6,182,212,0.4)] hover:scale-105 active:scale-95'
             }`}
           >
             <div className="flex flex-col items-center">
-              <span className="text-lg">{isReady ? 'Unready' : 'Ready Up'}</span>
+              <span className="text-lg">
+                {!hasCompletedTutorial ? 'Skip Tutorial' : isReady ? 'Unready' : 'Ready Up'}
+              </span>
             </div>
           </button>
         </div>

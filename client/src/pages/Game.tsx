@@ -1,3 +1,7 @@
+import CipherGuideModal from '../components/guides/CipherGuideModal';
+import BeginnerTutorial from '../components/tutorial/BeginnerTutorial';
+import { useTutorialFlow } from '../components/tutorial/useTutorialFlow';
+import { gameTutorialSteps } from '../components/tutorial/tutorialSteps';
 import { useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Shield, ChevronDown, ChevronUp, Check, X } from "lucide-react";
@@ -115,6 +119,23 @@ export default function Game() {
   const myId = players.find((p) => p.name === myName)?.id ?? "";
   const hasVoted = teamVotesCast?.includes(myId) ?? false;
   const hasQuestVoted = questVotesCast?.includes(myId) ?? false;
+
+  const {
+    runTutorial,
+    tutorialStep,
+    currentStep,
+    totalSteps,
+    startTutorial,
+    handleNextTutorialStep,
+    handlePreviousTutorialStep,
+    handleSkipTutorial,
+  } = useTutorialFlow({
+    key: 'game',
+    steps: gameTutorialSteps,
+    shouldAutoStart: false,
+  });
+
+  const [showCipherGuide, setShowCipherGuide] = useState(false);
 
   useEffect(() => {
     if (!socket) return;
@@ -351,7 +372,42 @@ export default function Game() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-hidden flex flex-col p-4 md:p-8">
+    <div className="min-h-screen w-full bg-[#0A0D14] font-sans text-white relative overflow-x-hidden flex flex-col p-4 md:p-8">
+      <div className="relative z-20 flex justify-end gap-6 mb-2">
+        <button
+          type="button"
+          onClick={() => setShowCipherGuide(true)}
+          className="px-4 py-2 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-purple-300 transition-colors"
+        >
+          How to Play
+        </button>
+
+        <button
+          type="button"
+          onClick={startTutorial}
+          className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-600 hover:text-cyan-300 transition-colors"
+        >
+          UI Guide
+        </button>
+      </div>
+
+      <BeginnerTutorial
+        isOpen={runTutorial}
+        step={tutorialStep}
+        totalSteps={totalSteps}
+        title={currentStep.title}
+        content={currentStep.content}
+        targetId={currentStep.targetId}
+        onNext={handleNextTutorialStep}
+        onBack={handlePreviousTutorialStep}
+        onSkip={handleSkipTutorial}
+      />
+
+      <CipherGuideModal
+        isOpen={showCipherGuide}
+        onClose={() => setShowCipherGuide(false)}
+      />
+
       <div className="absolute top-[10%] left-[-10%] w-[40%] h-[40%] bg-emerald-600/5 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] bg-rose-600/5 rounded-full blur-[120px] pointer-events-none" />
 
@@ -364,7 +420,10 @@ export default function Game() {
       />
       <NodeDebriefModal selectedNodeHistory={selectedNodeHistory} setSelectedNodeHistory={setSelectedNodeHistory} players={players} />
 
-      <header className="relative z-10 w-full max-w-[1200px] mx-auto grid grid-cols-3 items-center mb-8 pb-4 border-b border-white/5">
+      <header 
+        data-tutorial="game-header"
+        className="relative z-10 w-full max-w-[1200px] mx-auto grid grid-cols-3 items-center mb-8 pb-4 border-b border-white/5"
+      >
         <div className="flex items-center gap-3 justify-start">
           <Shield className="w-6 h-6 text-cyan-400" />
           <h1 className="text-xl font-bold tracking-tight">
@@ -395,20 +454,28 @@ export default function Game() {
 
       <div className="relative z-10 w-full max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <MissionProgressPanel
-            questsWon={questsWon}
-            votesRejected={votesRejected}
-            currentQuest={currentQuest}
-            questHistory={questHistory}
-            currentQuestVoteHistory={currentQuestVoteHistory}
-            setSelectedNodeHistory={setSelectedNodeHistory}
-          />
-          <AgentRosterPanel players={players} myName={myName} />
+          <div data-tutorial="mission-progress">
+            <MissionProgressPanel
+              questsWon={questsWon}
+              votesRejected={votesRejected}
+              currentQuest={currentQuest}
+              questHistory={questHistory}
+              currentQuestVoteHistory={currentQuestVoteHistory}
+              setSelectedNodeHistory={setSelectedNodeHistory}
+            />
+          </div>
+          <div data-tutorial="agent-roster">
+            <AgentRosterPanel players={players} myName={myName} />
+          </div>
         </div>
         <div className="lg:col-span-4 flex flex-col gap-6">
-          <RoleCardPanel myRole={myRole} />
-          <ChatBox myName={myName} myRole={myRole} phase={phase} />
-          <PrivateNotepad gameId={gameId} myName={myName} />
+          <div data-tutorial="role-card">
+            <RoleCardPanel myRole={myRole} />
+          </div>
+            <div data-tutorial="game-tools" className="flex flex-col gap-6">
+              <ChatBox myName={myName} myRole={myRole} phase={phase} />
+              <PrivateNotepad gameId={gameId} myName={myName} />
+            </div>
         </div>
       </div>
 
@@ -417,6 +484,7 @@ export default function Game() {
           phase !== "GAME_OVER" &&
           !showRoleReveal && (
             <motion.div
+              data-tutorial="action-panel"
               key={phase}
               initial={{ opacity: 0, y: 50, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
