@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Shield, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 import { useParams, useLocation } from "react-router-dom";
 import { useSocket } from "../context/useSocket";
+import type { QuestRecord, TeamVoteAttempt } from '../types/game';
 
 // Actions
 import TeamSelectionPanel from "../components/panels/TeamSelectionPanel";
@@ -43,15 +44,6 @@ interface MyRole {
   team: string;
   specialInfo: Intel[];
 }
-interface QuestRecord {
-  questNumber: number;
-  succeeded: boolean;
-  failCount: number;
-  successCount: number;
-  team: string[];
-  leader: { id: string; name: string };
-  teamVotes?: Record<string, "approve" | "reject">;
-}
 interface GameState {
   phase: string;
   currentQuest: number;
@@ -64,6 +56,7 @@ interface GameState {
   questHistory?: QuestRecord[];
   teamVotesCast?: string[];
   questVotesCast?: string[];
+  currentQuestVoteHistory?: TeamVoteAttempt[];
   gameId?: number;
   winReason?: string;
   requiredTeamSize?: number;
@@ -111,6 +104,7 @@ export default function Game() {
     proposedTeam,
     currentLeader,
     questHistory,
+    currentQuestVoteHistory,
     teamVotesCast,
     questVotesCast,
     gameId,
@@ -466,6 +460,7 @@ export default function Game() {
               votesRejected={votesRejected}
               currentQuest={currentQuest}
               questHistory={questHistory}
+              currentQuestVoteHistory={currentQuestVoteHistory}
               setSelectedNodeHistory={setSelectedNodeHistory}
             />
           </div>

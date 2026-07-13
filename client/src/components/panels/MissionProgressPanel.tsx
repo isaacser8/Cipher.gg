@@ -1,14 +1,22 @@
-import { type QuestRecord } from '../../types/game';
+import { type QuestRecord, type TeamVoteAttempt } from '../../types/game';
 
 interface Props {
   questsWon?: { good: number; evil: number };
   votesRejected: number;
   currentQuest: number;
   questHistory?: QuestRecord[]; 
+  currentQuestVoteHistory?: TeamVoteAttempt[];
   setSelectedNodeHistory: (record: QuestRecord | null) => void; 
 }
 
-export default function MissionProgressPanel({ questsWon, votesRejected, currentQuest, questHistory, setSelectedNodeHistory }: Props) {  return (
+export default function MissionProgressPanel({ 
+  questsWon, 
+  votesRejected, 
+  currentQuest, 
+  questHistory, 
+  currentQuestVoteHistory,
+  setSelectedNodeHistory 
+}: Props) {  return (
     <div className="bg-[#11151C]/90 backdrop-blur-xl p-6 rounded-2xl border border-white/5 shadow-xl">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Mission Progress</h3>
@@ -23,13 +31,25 @@ export default function MissionProgressPanel({ questsWon, votesRejected, current
       <div className="flex justify-between items-center px-4">
         {[1, 2, 3, 4, 5].map(q => {
           const pastQuest = questHistory?.find(h => h.questNumber === q);
+          const currentQuestReview =
+            q === currentQuest && currentQuestVoteHistory && currentQuestVoteHistory.length > 0
+              ? {
+                  questNumber: q,
+                  team: currentQuestVoteHistory[currentQuestVoteHistory.length - 1].proposedTeam,
+                  leader: currentQuestVoteHistory[currentQuestVoteHistory.length - 1].leader,
+                  teamVotes: currentQuestVoteHistory[currentQuestVoteHistory.length - 1].votes,
+                  teamVoteHistory: currentQuestVoteHistory,
+                }
+              : null;
+
+          const nodeRecord = pastQuest ?? currentQuestReview;
           const isSuccess = pastQuest?.succeeded;
 
           return (
             <div 
               key={q} 
-              onClick={() => pastQuest && setSelectedNodeHistory(pastQuest)}
-              className={`flex flex-col items-center gap-2 ${pastQuest ? 'cursor-pointer hover:scale-110 transition-transform' : currentQuest === q ? '' : 'opacity-50'}`}
+              onClick={() => nodeRecord && setSelectedNodeHistory(nodeRecord)}
+              className={`flex flex-col items-center gap-2 ${nodeRecord ? 'cursor-pointer hover:scale-110 transition-transform' : currentQuest === q ? '' : 'opacity-50'}`}
             >
               <div className={`w-12 h-12 rounded-full border-2 flex items-center justify-center font-black text-lg transition-all
                 ${currentQuest === q 
