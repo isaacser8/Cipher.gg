@@ -7,11 +7,17 @@ const http = require("http");
 const { Server } = require("socket.io");
 const { connectToDatabase } = require("./config/database");
 const { registerSocketHandlers } = require("./socket/registerSocketHandlers");
+const profileRoutes = require("./routes/profileRoutes");
+const { clerkMiddleware } = require("@clerk/express");
 
 // App & server setup
 const app = express();
 app.use(cors());
 app.use(express.json());
+app.use(clerkMiddleware());
+
+app.use("/api/profile", profileRoutes);
+
 
 const server = http.createServer(app);
 

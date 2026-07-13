@@ -7,10 +7,10 @@ async function updateUserStatsAfterMatch({
   winner,
   assassinationState,
 }) {
-  // A match ended by a permanent disconnect is a technical failure, not a
-  // competitive result — don't let it inflate matchesPlayed or affect anyone's stats.
-  if (winner === "abandoned") return;
-
+  if (winner === "abandoned") {
+    return;
+  }
+  
   const operations = [];
 
   for (const player of roomPlayers) {

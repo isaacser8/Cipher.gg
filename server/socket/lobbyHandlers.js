@@ -53,7 +53,9 @@ function registerLobbyHandlers(io, socket) {
             username: safeName,
           });
 
-          console.log(`👤 New agent profile created for ${safeName}`);
+          if (process.env.NODE_ENV !== "test") {
+            console.log(`👤 New agent profile created for ${safeName}`);
+          }
         }
 
         mongoDbId = dbUser._id;
@@ -144,7 +146,6 @@ function registerLobbyHandlers(io, socket) {
 
       existingPlayer.id = newId;
       existingPlayer.isConnected = true;
-      existingPlayer.isReady = false;
 
       if (shouldBeHost) {
         existingPlayer.isHost = true;

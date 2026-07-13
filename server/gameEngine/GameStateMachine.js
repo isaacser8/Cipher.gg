@@ -45,7 +45,9 @@ class GameStateMachine {
   }
 
   _transition(newState) {
-    console.log(`[FSM] ${this.currentState} → ${newState}`);
+    if (process.env.NODE_ENV !== "test") {
+      console.log(`[FSM] ${this.currentState} → ${newState}`);
+    }
     this.currentState = newState;
   }
 
