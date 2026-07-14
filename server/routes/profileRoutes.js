@@ -66,9 +66,40 @@ router.get("/me", async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(10)
       .select("roomCode winner winReason questHistory players createdAt");
+    
+    const formattedRecentMatches = recentMatches.map((match) => {
+      const playerRecord = match.players.find(
+        (player) => player.userId?.toString() === user._id.toString(),
+      );
+
+      const goodScore =
+        match.questHistory?.filter((quest) => quest.succeeded === true).length ?? 0;
+
+      const evilScore =
+        match.questHistory?.filter((quest) => quest.succeeded === false).length ?? 0;
+
+      const didWin =
+        match.winner !== "abandoned" && playerRecord?.team === match.winner;
+
+      return {
+        id: match._id.toString(),
+        roomCode: match.roomCode,
+        winner: match.winner,
+        winReason: match.winReason,
+        createdAt: match.createdAt,
+        myRole: playerRecord?.role ?? "Unknown",
+        myTeam: playerRecord?.team ?? "unknown",
+        didWin,
+        questSummary: {
+          good: goodScore,
+          evil: evilScore,
+        },
+      };
+    });
 
     return res.json({
       user: {
+        id: user._id.toString(),
         clerkId: user.clerkId,
         username: user.username,
         stats: {
@@ -81,7 +112,7 @@ router.get("/me", async (req, res) => {
           assassinationRate,
         },
       },
-      recentMatches,
+      recentMatches: formattedRecentMatches,
     });
   } catch (error) {
     console.error("Profile route error:", error);

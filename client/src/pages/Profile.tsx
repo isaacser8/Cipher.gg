@@ -250,38 +250,91 @@ export default function Profile() {
               </p>
             ) : (
               <div className="space-y-3">
-                {profile.recentMatches.map((match) => (
-                  <div
-                    key={match._id}
-                    className="p-4 rounded-xl bg-black/30 border border-white/5 flex flex-col md:flex-row md:items-center md:justify-between gap-3"
-                  >
-                    <div>
-                      <p className="text-sm font-black uppercase tracking-widest text-slate-200">
-                        Room {match.roomCode}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        {new Date(match.createdAt).toLocaleString()}
-                      </p>
-                    </div>
+                {profile.recentMatches.map((match) => {
+                  const resultLabel =
+                    match.winner === 'abandoned'
+                      ? 'Aborted'
+                      : match.didWin
+                        ? 'Victory'
+                        : 'Defeat';
 
-                    <div className="text-left md:text-right">
-                      <p
-                        className={`text-sm font-black uppercase tracking-widest ${
-                          match.winner === 'good'
-                            ? 'text-emerald-400'
-                            : match.winner === 'evil'
-                              ? 'text-rose-400'
-                              : 'text-amber-400'
-                        }`}
-                      >
-                        {match.winner}
-                      </p>
-                      <p className="text-xs text-slate-500 max-w-md">
-                        {match.winReason}
-                      </p>
+                  const resultColor =
+                    match.winner === 'abandoned'
+                      ? 'text-amber-400'
+                      : match.didWin
+                        ? 'text-emerald-400'
+                        : 'text-rose-400';
+                  
+                  return (
+                    <div
+                      key={match.id}
+                      className="p-4 rounded-xl bg-black/30 border border-white/5 flex flex-col md:flex-row md:items-center md:justify-between gap-4"
+                    >
+                      <div>
+                        <p className="text-sm font-black uppercase tracking-widest text-slate-200">
+                          Room {match.roomCode}
+                        </p>
+                        <p className="text-xs text-slate-500 mt-1">
+                          {new Date(match.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-left md:text-right">
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                            Result
+                          </p>
+                          <p className={`text-sm font-black uppercase tracking-widest ${resultColor}`}>
+                            {resultLabel}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                            Role
+                          </p>
+                          <p className="text-sm font-bold text-slate-300">
+                            {match.myRole}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                            Team
+                          </p>
+                          <p
+                            className={`text-sm font-bold uppercase ${
+                              match.myTeam === 'good'
+                                ? 'text-emerald-400'
+                                : match.myTeam === 'evil'
+                                  ? 'text-rose-400'
+                                  : 'text-slate-400'
+                            }`}
+                          >
+                            {match.myTeam}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+                            Score
+                          </p>
+                          <p className="text-sm font-bold text-slate-300">
+                            {match.winner === 'abandoned'
+                              ? '-'
+                              : `${match.questSummary.good} - ${match.questSummary.evil}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {match.winReason && (
+                        <p className="text-xs text-slate-500 md:max-w-xs md:text-right">
+                          {match.winReason}
+                        </p>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </section>
