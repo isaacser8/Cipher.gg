@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface BeginnerTutorialProps {
   isOpen: boolean;
@@ -75,8 +75,6 @@ export default function BeginnerTutorial({
     };
   }, [isOpen, targetId, step]);
 
-  if (!isOpen) return null;
-
   const isLastStep = step === totalSteps - 1;
 
   const cardPositionClass =
@@ -85,74 +83,91 @@ export default function BeginnerTutorial({
       : 'items-start pt-10';
 
   return (
-    <div className="fixed inset-0 z-[10000] pointer-events-auto">
-      <div className="absolute inset-0 bg-black/50" />
-
-      {targetRect && (
+    <AnimatePresence>
+      {isOpen && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.96 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="absolute rounded-3xl border-2 border-cyan-300 shadow-[0_0_45px_rgba(34,211,238,0.85)]"
-          style={{
-            top: targetRect.top - 8,
-            left: targetRect.left - 8,
-            width: targetRect.width + 16,
-            height: targetRect.height + 16,
-          }}
-        />
-      )}
-
-      <div className={`relative z-10 h-full flex justify-center px-6 ${cardPositionClass}`}>
-        <motion.div
-          key={step}
-          initial={{ opacity: 0, y: 24, scale: 0.96 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="pointer-events-auto w-full max-w-md bg-[#11151C] border border-cyan-500/30 rounded-3xl p-6 shadow-[0_0_40px_rgba(6,182,212,0.2)]"
+          key="beginner-tutorial"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.18 }}
+          className="fixed inset-0 z-[10000] pointer-events-auto"
         >
-          <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-[0.3em] mb-3">
-            Beginner Tutorial {step + 1}/{totalSteps}
-          </p>
+          <motion.div
+            className="absolute inset-0 bg-black/50"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.18 }}
+          />
 
-          <h2 className="text-2xl font-black text-white mb-3">
-            {title}
-          </h2>
+          {targetRect && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="absolute rounded-3xl border-2 border-cyan-300 shadow-[0_0_45px_rgba(34,211,238,0.85)]"
+              style={{
+                top: targetRect.top - 8,
+                left: targetRect.left - 8,
+                width: targetRect.width + 16,
+                height: targetRect.height + 16,
+              }}
+            />
+          )}
 
-          <p className="text-sm text-slate-300 leading-relaxed mb-6">
-            {content}
-          </p>
-
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={onBack}
-              disabled={step === 0}
-              className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
-                step === 0
-                  ? 'bg-white/5 text-slate-700 cursor-not-allowed'
-                  : 'bg-white/5 hover:bg-white/10 text-slate-400'
-              }`}
+          <div className={`relative z-10 h-full flex justify-center px-6 ${cardPositionClass}`}>
+            <motion.div
+              key={step}
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              className="pointer-events-auto w-full max-w-md bg-[#11151C] border border-cyan-500/30 rounded-3xl p-6 shadow-[0_0_40px_rgba(6,182,212,0.2)]"
             >
-              Back
-            </button>
+              <p className="text-[10px] font-bold text-cyan-400 uppercase tracking-[0.3em] mb-3">
+                Beginner Tutorial {step + 1}/{totalSteps}
+              </p>
 
-            <button
-              type="button"
-              onClick={onSkip}
-              className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
-            >
-              Skip
-            </button>
+              <h2 className="text-2xl font-black text-white mb-3">
+                {title}
+              </h2>
 
-            <button
-              type="button"
-              onClick={onNext}
-              className="px-5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold uppercase tracking-widest transition-all"
-            >
-              {isLastStep ? 'Finish' : 'Next'}
-            </button>
+              <p className="text-sm text-slate-300 leading-relaxed mb-6">
+                {content}
+              </p>
+
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={onBack}
+                  disabled={step === 0}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${
+                    step === 0
+                      ? 'bg-white/5 text-slate-700 cursor-not-allowed'
+                      : 'bg-white/5 hover:bg-white/10 text-slate-400'
+                  }`}
+                >
+                  Back
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onSkip}
+                  className="px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest bg-white/5 hover:bg-white/10 text-slate-400 transition-all"
+                >
+                  Skip
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onNext}
+                  className="px-5 py-2 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 text-xs font-bold uppercase tracking-widest transition-all"
+                >
+                  {isLastStep ? 'Finish' : 'Next'}
+                </button>
+              </div>
+            </motion.div>
           </div>
         </motion.div>
-      </div>
-    </div>
+      )}
+    </AnimatePresence>
   );
 }
