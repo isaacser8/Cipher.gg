@@ -8,9 +8,9 @@ import {
   Crosshair,
   Trophy,
   History,
-  Users,
   ArrowLeft,
 } from 'lucide-react';
+import FriendsPanel from '../components/profile/FriendsPanel';
 import type { UserProfile } from '../types/profile';
 
 const API_BASE_URL =
@@ -340,21 +340,7 @@ export default function Profile() {
           </section>
         )}
 
-        {activeTab === 'friends' && (
-          <section className="p-6 rounded-2xl bg-[#11151C]/90 border border-white/10 shadow-xl">
-            <div className="flex items-center gap-3 mb-5">
-              <Users className="w-6 h-6 text-cyan-400" />
-              <h2 className="text-xl font-black uppercase tracking-widest">
-                Friends
-              </h2>
-            </div>
-
-            <p className="text-slate-500 text-sm">
-              Friends list coming soon. This section is prepared for future social
-              features such as saved agents, invites, and private match history.
-            </p>
-          </section>
-        )}
+        {activeTab === 'friends' && <FriendsPanel />}
       </div>
     </div>
   );
