@@ -9,6 +9,7 @@ const { connectToDatabase } = require("./config/database");
 const { registerSocketHandlers } = require("./socket/registerSocketHandlers");
 const profileRoutes = require("./routes/profileRoutes");
 const { clerkMiddleware } = require("@clerk/express");
+const friendRoutes = require("./routes/friendRoutes");
 
 // App & server setup
 const app = express();
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use(clerkMiddleware());
 
 app.use("/api/profile", profileRoutes);
+app.use("/api/friends", friendRoutes);
 
 
 const server = http.createServer(app);
