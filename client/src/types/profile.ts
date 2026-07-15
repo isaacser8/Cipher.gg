@@ -30,3 +30,29 @@ export interface UserProfile {
   stats: ProfileStats;
   recentMatches: ProfileMatch[];
 }
+
+export interface FriendStats {
+  matchesPlayed: number;
+  winsAsGood: number;
+  winsAsEvil: number;
+  successfulAssassinations: number;
+}
+
+export interface FriendUser {
+  id: string;
+  username: string;
+  stats: FriendStats;
+}
+
+export interface Friend {
+  friendshipId: string;
+  id: string;
+  username: string;
+  stats: FriendStats;
+}
+
+export interface FriendRequest {
+  friendshipId: string;
+  requester: FriendUser;
+  createdAt: string;
+}
