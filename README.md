@@ -571,13 +571,18 @@ Signed-in and guest players are handled differently. A signed-in player is store
 
 ## **Feature 9: User Profile (Final)**
 
+![User Profile Overview](docs/images/image20.png)
+
 ***User Profile Overview***  
 ***signed-in players can view their identity and cumulative performance statistics.***
 
-***![][image20]***  
-***Recent Matches Tab***   
-***players can review their latest games, roles, results, and quest scores from their profile.***  
-***![][image21]***  
+![Recent Matches Tab](docs/images/image21.png)
+
+***Recent Matches Tab***  
+***players can review their latest games, roles, results, and quest scores from their profile.***
+
+![Sequence Diagram: From Game Over to Profile Statistics](docs/images/Feature%209%20Sequence%20Diagram.png)
+
 ***Sequence Diagram: From Game Over to Profile Statistics***
 
 As a returning player, I want a profile page showing my cumulative performance so that I can see how I'm doing across all my matches, not just the last one.
