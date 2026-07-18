@@ -2,6 +2,8 @@
 
 **NUS Orbital 2026**
 
+*![](docs/images/image43.png)* 
+
 **Milestone 3**
 
 [Poster](https://drive.google.com/open?id=1LaOPT8ociCEJ9-8wNmFAK7UMUht9sk6K)     [Video](https://drive.google.com/file/d/1fPp5b64R5bRw0O_vfzrThwaY-Hge5999/view?usp=drive_link)     [App](https://cipher-gg.vercel.app/)     [Logs](https://docs.google.com/spreadsheets/d/1BcNKlEsbPl6X9RItWCmZ2JamW19ULihYUCF8pqjQjcY/edit?usp=sharing)
@@ -197,7 +199,7 @@ The rest of this README explains how our design addresses these challenges throu
 
 # **System Architecture**
 
- 
+*![](docs/images/image48.png)* 
 
 *Architecture Diagram*
 
@@ -231,12 +233,15 @@ The rest of this README explains how our design addresses these challenges throu
 
 ## **Feature 1: Lobby & Session Management System (Final)**
 
+*![](docs/images/image46.png)* 
+*![](docs/images/image40.png)* 
+
 *Hosting/Join Page*
 
-*![](docs/images/image1.png)*  
+*![](docs/images/image36.png)*  
 *Joined Lobby*
 
-*![](docs/images/image2.png)*
+*![](docs/images/image39.png)*
 
 *Joined Lobby As Host*
 
@@ -249,6 +254,8 @@ There is also a validation layer that rejects display names that are blank, over
 **Trade-Offs:** This architectural design directly fulfills our core user story of generating private digital rooms as it guarantees that friends can connect seamlessly without cross-lobby interference or data leaks. However, it carries the same trade-off we flagged in MS1, which is that the lobby state lives entirely in server memory (RAM) rather than a persistent store, so a server restart wipes all active lobbies. The Reconnection System delivered in this milestone (see Feature 6\) addresses the player-facing half of this problem — an individual dropping and rejoining — but the underlying constraint remains: state lives in the server process, so a restart still wipes active lobbies. Moving this state into an external store such as Redis remains the natural next step (see Known Limitations). We also weighed auto-starting the match the moment the room filled, but we chose the explicit Ready Up step instead, since auto-start risked starting the game for a player whose client hadn't fully caught up. That's a bug we'd rather design out at the protocol level than patch reactively later.
 
 ### **Sub-Feature 1.1: Authentication**
+
+*![](docs/images/image41.png)* 
 
 *User Authentication Page*
 
@@ -276,6 +283,8 @@ The frontend never sees the full game state. Instead, a server-side presenter (g
 
 ### **Backend Game Engine Module Design**
 
+*![](docs/images/image25.png)* 
+
 The backend game engine is split into focused modules instead of placing all game logic inside the socket handlers.
 
 - GameStateMachine owns the current phase and controls legal transitions.  
@@ -288,29 +297,7 @@ This follows the same SE principle of separation of concerns as socket handlers 
 
 ### **FSM Design Discussion**
 
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
-
-### 
+*![](docs/images/image28.png)* 
 
 ### **Finite State Machine (FSM) Diagram for Gameplay**
 
@@ -329,14 +316,21 @@ The FSM diagram also makes the rejection branch explicit. If a proposed team is 
 
 ### **Sub-Feature 2.1: Role Assignment, Information Hiding**
 
+*![](docs/images/image26.png)* 
+*![](docs/images/image1.png)* 
+*![](docs/images/image2.png)* 
+*![](docs/images/image3.png)* 
+
 *Role Reveal Modal*
 
 When the game starts, each player sees a RoleRevealModal confirming their assigned role and any intel they are entitled to. While players read and confirm their roles, the dashboard renders an **"Awaiting Acknowledgements"** header indicating that the FSM is in ROLE\_ACKNOWLEDGEMENT and waiting for every player to click their "Acknowledge Directive" button (see Sub-Feature 4.5). Once every player has confirmed, the FSM transitions to PRE\_GAME\_STRATEGY for the first round of coordination (see Sub-Feature 2.2).
 
 The intel each player receives is filtered server-side by their role. Merlin sees both Evil agents, the Assassin and Mordred's Minion see each other as Evil, and Loyal Servants receive no intel at all — they are told only their alignment, with no visibility into anyone else's role. This filtering happens entirely in gameStatePresenter.js before the role payload is broadcast, so no client ever receives information beyond what its role permits, regardless of any attempt to inspect or tamper with the response on the frontend. After the modal is acknowledged, the same intel persists in the player's RoleCardPanel for the rest of the match (see Sub-Feature 4.3), so players can refer back to their role and intel without needing to remember the initial reveal.
 
-*Awaiting Acknowledgements Page*  
-*![](docs/images/image3.png)*  
+*![](docs/images/image29.png)* 
+*Awaiting Acknowledgements Page* 
+
+*![](docs/images/image14.png)*  
 *Sequence diagram for role assignment and data masking*
 
 ### **Zero-Trust Data Masking**
@@ -356,49 +350,53 @@ This means a malicious client cannot reveal hidden roles by inspecting browser s
 
 ### **Sub-Feature 2.2: Pre-Game Strategy Phase**
 
-![](docs/images/image4.png)*Strategy Phase* 
+![](docs/images/image45.png)
+*Strategy Phase* 
 
 After every player clicks "Acknowledge Directive" on their Role Reveal Modal, the FSM transitions from ROLE\_ACKNOWLEDGEMENT to PRE\_GAME\_STRATEGY, opening a 30-second window before the first quest begins. During this phase, Evil players gain access to a private Evil-only channel in the chatbox (see Feature 3\) so they can identify their teammates and coordinate without exposing themselves to Good players. The engine enforces both the phase boundary and the channel gating: the Evil chat toggle is only available while the FSM is in PRE\_GAME\_STRATEGY, and the server rejects any message routed to the Evil channel from a Good-aligned socket regardless of what the client sends. When the timer expires, the FSM automatically advances to TEAM\_SELECTION for the first quest, closing the Evil channel for the rest of the match. 
 
 ### **Sub-Feature 2.3: Team Selection** 
 
-![](docs/images/image5.png)
-
+![](docs/images/image47.png)
 *Team Selection Phase*
 
 The current leader selects a team of size teamSize\[questNumber\] from the active player roster, while every other player sees a waiting state until the proposal is submitted. The engine enforces that only the current leader's submission is accepted and that the team size matches the rulebook for the current quest and player count — any other submission is rejected with an explicit error. The TeamSelectionPanel renders the selection controls only for the leader (see Sub-Feature 4.5 for the panel's UI specifics). 
 
 ### **Sub-Feature 2.4: Team Voting** 
 
-![](docs/images/image6.png)
-
+![](docs/images/image49.png)
 *Voting Phase*
 
 Once a team is proposed, every player simultaneously votes to approve or reject it. The server collects votes through the TeamVotingPanel, tallies them, and either advances the game to QUEST\_EXECUTION (majority approval) or transitions to VOTE\_FAILED, which rotates the leader and loops back to TEAM\_SELECTION. Vote history is recorded permanently in the match state so players can scrutinize each other's voting patterns. If five teams are rejected consecutively without a single approval, the QuestManager ends the match with Evil winning automatically — preventing an indefinite stall. 
 
 ### **Sub-Feature 2.5: Quest Execution** 
 
-## **![](docs/images/image7.png)**
+![](docs/images/image12.png)
 
 *Quest Execution Phase*
 
 Players selected for the quest each privately submit a Success or Sabotage card through the QuestExecutionPanel. The engine renders the Sabotage option only to Evil players and rejects any Sabotage submission from a Good-aligned socket on the server side, regardless of what the client sends. The quest passes if all submitted cards are Success and fails otherwise. Individual card submissions remain anonymous — only the aggregated pass/fail result and the count of Sabotage cards (without revealing who played them) is broadcast through gameStatePresenter.js. 
 
 A sequence diagram from team proposal to quest execution is attached below to show how Socket.IO events move through the server, FSM, QuestManager, and dashboard updates.  
-![](docs/images/image8.png)
+![](docs/images/image27.png)
 
 ### **Sub-Feature 2.6: Assassination**
-
+*![](docs/images/image7.png)* 
 *Assassination Phase*
 
 If Good would otherwise win by completing three successful quests, the FSM transitions to ASSASSINATION\_PHASE rather than ending the game immediately. The AssassinationManager gives the Assassin a one-shot decision to identify Merlin from the player roster — a correct guess flips the outcome to an Evil win, while an incorrect guess confirms Good's victory. Only the Assassin's socket is permitted to submit a target, and the panel (see Sub-Feature 4.5) only renders for that player. Once the Assassin submits their target, the FSM transitions to GAME\_OVER and the outcome is handed off to the Endgame Summary (see Feature 5). 
 
 ## **Feature 3: Real-Time Text Chat (Final)**
 
-![](docs/images/image9.png)  
-![](docs/images/image10.png)  
+![](docs/images/image50.png)  
+![](docs/images/image51.png)  
 *Real time text chat for players in lobby/in-game*  
-    *Exclusive evil channel for pre strategy           Search feature to secure keywords*
+
+![](docs/images/image16.png)
+*Exclusive evil channel for pre strategy*
+
+![](docs/images/image31.png)
+*Search feature to secure keywords*
 
 As a player, I can communicate with everyone in my room through a real-time chatbox during both the lobby and in-game phases which helps us to debate, defend, accuse, coordinate quest decisions, and review previous messages without relying on external apps like Discord, WhatsApp, or Telegram. 
 
@@ -416,7 +414,7 @@ The chatbox also supports communication for Evil players during the pre-game str
 
 ## **Feature 4: Dynamic Player Dashboard (Final)**
 
-![](docs/images/image11.png)  
+![](docs/images/image18.png)  
 *Dashboard Overview*
 
 As a player, I can view a live game dashboard that updates instantly as the match progresses, showing me the current mission status, player roster, my private role information, the active phase, the phase timer, and any actions I need to take. This means I do not need to manually track whose turn it is, which quest is active, who has been selected for a team, or whether the game is waiting for my vote. The dashboard acts as my command centre throughout the match.
@@ -429,7 +427,7 @@ The dashboard is intentionally modular, composed of two categories of panels. Fo
 
 ### **Sub-Feature 4.1: Agent Roster Panel** 
 
-*![](docs/images/image12.png)*
+*![](docs/images/image30.png)*
 
 *Flaggable player roster with indication when quest players are selected*
 
@@ -440,8 +438,10 @@ The roster panel lists every player currently in the room, with the current lead
 ### **Sub-Feature 4.2: Mission Progress Panel** 
 
  
-
-                 *Mission progress panel                                            Details of each node* 
+![](docs/images/image53.png)
+*Mission progress panel*
+![](docs/images/image24.png)
+*Details of each node* 
 
 The mission progress panel displays all five quests in the match as a sequence of nodes, color-coded by their outcome: **secured** (Good won the quest), **compromised** (Evil won the quest), **rejected** (no team was ever approved for this attempt), and **pending** (not yet attempted). Each completed node also surfaces additional detail on hover, including the proposing leader, the approved team, and the number of Sabotage cards played. This gives players a glanceable summary of the match's trajectory at any point in the game — see Sub-Features 2.4 and 2.5 for the engine rules behind quest outcomes.
 
@@ -449,7 +449,10 @@ The mission progress panel displays all five quests in the match as a sequence o
 
 ### **Sub-Feature 4.3: Role Card Panel** 
 
-![](docs/images/image13.png)
+![](docs/images/image54.png)
+![](docs/images/image55.png)
+![](docs/images/image56.png)
+![](docs/images/image57.png)
 
 *Role Card Panel*
 
@@ -457,38 +460,46 @@ The role card panel persistently displays the player's classified identity (e.g.
 
 ### **Sub-Feature 4.4: Private Notepad** 
 
+![](docs/images/image19.png)
 *Notepad to jot down key intel*
 
 The private notepad is a free-form text area where each player can record their suspicions, observed claims, and voting patterns without exposing those notes to the rest of the lobby. This is especially important in social deduction games because players often need to track soft information over time — who pushed a suspicious team, who defended whom, who contradicted an earlier statement, or who may be hiding as Merlin. Notes are kept entirely client-side in browser storage, so they remain private even from the server. 
 
 ### **Sub-Feature 4.5: Phase-Specific Action Panels** 
 
-![](docs/images/image14.png)  
+![](docs/images/image15.png)  
 *Awaiting Acknowledgements Header*
 
-![](docs/images/image15.png)  
+![](docs/images/image17.png)  
 *Strategy Phase Header*
 
+![](docs/images/image58.png)
+![](docs/images/image59.png)
 *Team Selection Panel / Waiting Panel*
 
-![](docs/images/image16.png)  
+![](docs/images/image60.png)  
 *Team Voting Panel*
 
-## 
-
+![](docs/images/image10.png)  
+![](docs/images/image61.png)  
+![](docs/images/image62.png)  
 *Quest Execution Panel/Waiting Panel*
 
+![](docs/images/image63.png)  
 *Assassination Panel / Waiting Panel*
 
 The dashboard includes **six** elements that appear only during their corresponding FSM phase and disappear once the phase ends. The **Awaiting Acknowledgements header** appears while the engine is in ROLE\_ACKNOWLEDGEMENT, displaying a "Waiting for all agents to acknowledge their directives" message until every player has confirmed their role via the Role Reveal Modal (see Sub-Feature 2.1). The **Strategy Phase header** appears for 30 seconds after every player acknowledges their role, showing a "Strategy Phase active" banner with a countdown timer; during this window, Evil players gain access to the Evil-only chat channel (see Feature 3\) to coordinate before the first quest (see Sub-Feature 2.2). The **TeamSelectionPanel** renders selection controls only for the current leader (see Sub-Feature 2.3). The **TeamVotingPanel** shows yes/no controls during the voting phase and disappears once each player has voted (see Sub-Feature 2.4). The **QuestExecutionPanel** appears only for players selected for the current quest, with the Sabotage option visible only to Evil players (see Sub-Feature 2.5). The **AssassinationPanel** appears only on the Assassin's dashboard during the endgame (see Sub-Feature 2.6). All six are driven by the same per-socket phase data — when the FSM advances the match to a new state, the relevant element appears on every dashboard automatically, with no manual refresh needed. 
 
 ## **Feature 5: Endgame Summary (Final)**
 
-## 
-
-*Good Victory (Assassin failed to identify Merlin)          Evil Victory (5 consecutive rejected teams)*
-
-*Evil Victory (Assassin correctly identified Merlin)               Evil Victory (Evil sabotaged 3 quests)*
+![](docs/images/image44.png)  
+*Good Victory (Assassin failed to identify Merlin)*
+![](docs/images/image42.png)  
+*Evil Victory (5 consecutive rejected teams)*
+![](docs/images/image34.png)  
+*Evil Victory (Assassin correctly identified Merlin)*
+![](docs/images/image33.png)  
+*Evil Victory (Evil sabotaged 3 quests)*
 
 As a player, when a match ends, I can immediately see the final outcome of the game, the reason that side won, the final quest score, and the fully revealed identities of every player. This allows everyone in the room to understand exactly how the game concluded — whether Good won because the Assassin failed to identify Merlin, Evil won because Merlin was assassinated, Evil won because three quests were sabotaged, or Evil won because the lobby failed to approve any team across five consecutive votes.
 
@@ -504,8 +515,8 @@ The endgame summary also connects the live match to persistent records. Once the
 
 ## **Feature 6: Reconnection System (Final)**
 
-![](docs/images/image17.png)  
-***Sequence Diagram: Reconnection Grace Period and Socket ID Remapping***
+![](docs/images/image38.png)  
+*Sequence Diagram: Reconnection Grace Period and Socket ID Remapping*
 
 This sequence diagram shows why reconnection is handled as a server-side recovery flow rather than a normal join. When a player disconnects, the server temporarily preserves their seat, role, and active game state. If the player returns within the grace period, their new Socket.IO connection is mapped back to the existing player record. If the timer expires, the match is ended as abandoned and excluded from player statistics.
 
@@ -523,14 +534,15 @@ If the window lapses without a reconnection, the match can no longer continue wi
 
 ## **Feature 7: Interactive Beginner Tutorial (Final)**
 
+![](docs/images/image9.png)  
 ***Home Tutorial Overlay:***  
  ***first-time users are introduced to joining or hosting a session through a spotlight card***
 
-***![](docs/images/image18.png)***  
+![](docs/images/image32.png)  
 ***Lobby Tutorial Overlay***   
 ***users are guided through the lobby before readying up, with the highlighted area showing the current context.***  
-***![](docs/images/image19.png)***
 
+![](docs/images/image35.png)
 ***Quick Guide Modal***   
 ***a separate rules reference for players who need to review mission flow, roles, voting, sabotage, and win conditions.***
 
@@ -550,6 +562,7 @@ The tutorial is distinct from the "How to Play" guide (CipherGuideModal), which 
 
 ## **Feature 8: Match History & Analytics Log (Final)**
 
+![](docs/images/image13.png)  
 ***Match History Data Model***   
 ***Match embeds quest history and vote attempts, while signed-in players are referenced through User IDs.***
 
@@ -571,13 +584,15 @@ Signed-in and guest players are handled differently. A signed-in player is store
 
 ## **Feature 9: User Profile (Final)**
 
+![](docs/images/image37.png)  
 ***User Profile Overview***  
 ***signed-in players can view their identity and cumulative performance statistics.***
 
-***![](docs/images/image20.png)***  
+![](docs/images/image52.png)
 ***Recent Matches Tab***   
 ***players can review their latest games, roles, results, and quest scores from their profile.***  
-***![](docs/images/image21.png)***  
+
+![](docs/images/image4.png)
 ***Sequence Diagram: From Game Over to Profile Statistics***
 
 As a returning player, I want a profile page showing my cumulative performance so that I can see how I'm doing across all my matches, not just the last one.
