@@ -113,7 +113,7 @@ Jerry Wong Sing Zhe (A0330793B)  Ser Yi Zhe (A0325782X)
 
 # 
 
-# **Introduction** {#introduction}
+# **Introduction**
 
 Cipher.gg is a real-time web platform for playing hidden-role social deduction games inspired by The Resistance: Avalon. It replaces the human moderator with an automated backend game engine that handles role assignment, hidden information, voting, quest resolution, reconnection, and endgame records.
 
@@ -121,7 +121,7 @@ The deployed prototype is available at: [https://cipher-gg.vercel.app/](https://
 
 At a high level, Cipher.gg uses React on Vercel, Node.js/Express and Socket.IO on Railway, Clerk for authentication, and MongoDB for persistence.
 
-# **Beginner Overview: How the Game Works** {#beginner-overview:-how-the-game-works}
+# **Beginner Overview: How the Game Works**
 
 Cipher.gg is based on a hidden-role team game. Players are secretly assigned to either the Good team or the Evil team. Good players try to complete three successful quests. Evil players try to secretly sabotage three quests or identify Merlin at the end of the game.
 
@@ -129,7 +129,7 @@ Each round, one player becomes the leader and proposes a team for the current qu
 
 Good wins by securing three quests, but Evil gets one final chance to win by assassinating Merlin. Evil also wins if three quests are compromised or if the group rejects five proposed teams in a row.
 
-# **Glossary** {#glossary}
+# **Glossary**
 
 | Term | Meaning |
 | :---- | :---- |
@@ -142,15 +142,15 @@ Good wins by securing three quests, but Evil gets one final chance to win by ass
 | Declassification | The endgame reveal where all roles and teams are shown. |
 | Abandoned Match | A match ended because a player disconnected and did not return within the grace period. |
 
-# **Motivation** {#motivation}
+# **Motivation**
 
 As busy university students but also board game enthusiasts, we find coordinating in-person social deduction games like Avalon difficult due to location constraints, manual role tracking, and the need for an experienced moderator. To solve this, we want to build a real-time coordination engine that is able to digitize the moderator role, manage hidden information, and coordinate the game flow automatically, which is how Cipher.gg came to life. We also realised that traditional physical setups suffer from a steep learning curve and require a huge amount of time to facilitate understanding for beginners, and online platforms are not all well equipped with appropriate tools for deduction (such as notes, log history, match history etc.). Thus, we also hope to make such games less intimidating by providing a beginner guide with the addition of automated system logs to ensure that amateurs and veterans all can enjoy social deduction games anytime, anywhere.
 
-# **Our Aim** {#our-aim}
+# **Our Aim**
 
 Our project delivers a comprehensive and interactive solution by architecting a real-time state orchestration engine tailored for hidden-identity social deduction games. Unlike generic multiplayer apps, our system acts as a secure, automated moderator that manages information asymmetry and precise data masking across a distributed player base. Using a well-known board game: *The Resistance: Avalon* as our core model, we aim to demonstrate flawless real-time synchronization and prove that complex tabletop mechanics can also be seamlessly and securely digitized into a highly accessible, user-friendly experience for our users.
 
-# **Key Engineering Challenges** {#key-engineering-challenges}
+# **Key Engineering Challenges**
 
 Although Cipher.gg appears as a game interface, the core engineering challenge is not rendering screens. The difficult part is maintaining a secure real-time multiplayer state machine for a hidden-role game where players are not supposed to receive the same information.
 
@@ -168,7 +168,7 @@ We identified five main engineering challenges:
 
 The rest of this README explains how our design addresses these challenges through modular backend managers, per-socket state masking, integration tests, and CI/CD enforcement.
 
-# **User Stories** {#user-stories}
+# **User Stories**
 
 | User Type | User story  | Priority  |
 | :---- | :---- | :---- |
@@ -195,7 +195,7 @@ The rest of this README explains how our design addresses these challenges throu
 |  | As a new user to this service, I want an interactive tutorial that teaches me how to play games using this interface. | Essential |
 | Competitive Player | As a competitive player, I want to see detailed match analytics, such as my win rate and assassination accuracy, so that I can refine my strategy over time.  | Typical |
 
-# **System Architecture** {#system-architecture}
+# **System Architecture**
 
  
 
@@ -207,9 +207,9 @@ The rest of this README explains how our design addresses these challenges throu
 * **Data Masking:** Filters the FSM's global state into a player-specific view before broadcasting, so each client only sees what it's permitted to.  
 * **Database:** MongoDB (via Mongoose) stores persistent records including accounts, match history. 
 
-# **Features** {#features}
+# **Features**
 
-## **Features Overview** {#features-overview}
+## **Features Overview**
 
 | S/N | Feature | Status | Brief Explanation |
 | :---: | ----- | ----- | ----- |
@@ -229,7 +229,7 @@ The rest of this README explains how our design addresses these challenges throu
 
 ## 
 
-## **Feature 1: Lobby & Session Management System (Final)** {#feature-1:-lobby-&-session-management-system-(final)}
+## **Feature 1: Lobby & Session Management System (Final)**
 
 *Hosting/Join Page*
 
@@ -248,7 +248,7 @@ There is also a validation layer that rejects display names that are blank, over
 
 **Trade-Offs:** This architectural design directly fulfills our core user story of generating private digital rooms as it guarantees that friends can connect seamlessly without cross-lobby interference or data leaks. However, it carries the same trade-off we flagged in MS1, which is that the lobby state lives entirely in server memory (RAM) rather than a persistent store, so a server restart wipes all active lobbies. The Reconnection System delivered in this milestone (see Feature 6\) addresses the player-facing half of this problem — an individual dropping and rejoining — but the underlying constraint remains: state lives in the server process, so a restart still wipes active lobbies. Moving this state into an external store such as Redis remains the natural next step (see Known Limitations). We also weighed auto-starting the match the moment the room filled, but we chose the explicit Ready Up step instead, since auto-start risked starting the game for a player whose client hadn't fully caught up. That's a bug we'd rather design out at the protocol level than patch reactively later.
 
-### **Sub-Feature 1.1: Authentication** {#sub-feature-1.1:-authentication}
+### **Sub-Feature 1.1: Authentication**
 
 *User Authentication Page*
 
@@ -260,7 +260,7 @@ The system delegates identity management to Clerk for session handling instead o
 
 ## 
 
-## **Feature 2: Automated Game Master (Final)** {#feature-2:-automated-game-master-(final)}
+## **Feature 2: Automated Game Master (Final)**
 
 (Detailed visuals are presented below in sections for Sub-Features)
 
@@ -274,7 +274,7 @@ On top of the phase machinery, the engine enforces the full Avalon ruleset: the 
 
 The frontend never sees the full game state. Instead, a server-side presenter (gameStatePresenter.js) filters the FSM's output per-socket before broadcasting, so each player only receives the intel their role is entitled to: Merlin sees both Evil identities, Evil sees their teammates, and Loyal Servants see nothing. The React UI is reduced to rendering whatever the server hands it and emitting player actions with no game logic of its own.
 
-### **Backend Game Engine Module Design** {#backend-game-engine-module-design}
+### **Backend Game Engine Module Design**
 
 The backend game engine is split into focused modules instead of placing all game logic inside the socket handlers.
 
@@ -286,7 +286,7 @@ The backend game engine is split into focused modules instead of placing all gam
 
 This follows the same SE principle of separation of concerns as socket handlers act as controllers where they receive events, validate room/player context, and delegate to the correct game-engine module. This makes the engine easier to test because role assignment, quest logic, and assassination logic can be unit-tested independently.
 
-### **FSM Design Discussion** {#fsm-design-discussion}
+### **FSM Design Discussion**
 
 ### 
 
@@ -312,7 +312,7 @@ This follows the same SE principle of separation of concerns as socket handlers 
 
 ### 
 
-### **Finite State Machine (FSM) Diagram for Gameplay** {#finite-state-machine-(fsm)-diagram-for-gameplay}
+### **Finite State Machine (FSM) Diagram for Gameplay**
 
 The FSM is the core design decision behind Cipher.gg. Instead of allowing the frontend to decide which actions are valid, every incoming player action is checked against the current server-side phase. For example:
 
@@ -327,7 +327,7 @@ The FSM diagram also makes the rejection branch explicit. If a proposed team is 
 
 **Trade-Offs:** Putting the entire ruleset on an authoritative server increases backend computational load and requires every client to maintain a stable WebSocket connection throughout a match. A client-authoritative or peer-to-peer model would have lowered server costs and tolerated brief network drops more gracefully. However, it would be defenseless in a social deduction game where players are incentivized to inspect browser storage, forge network packets, vote out of turn, or force illegal state transitions. For this reason, zero-trust server authority is the only design that makes the rules enforceable, so the trade-off is worthwhile. 
 
-### **Sub-Feature 2.1: Role Assignment, Information Hiding** {#sub-feature-2.1:-role-assignment,-information-hiding}
+### **Sub-Feature 2.1: Role Assignment, Information Hiding**
 
 *Role Reveal Modal*
 
@@ -339,7 +339,7 @@ The intel each player receives is filtered server-side by their role. Merlin see
 *![][image3]*  
 *Sequence diagram for role assignment and data masking*
 
-### **Zero-Trust Data Masking** {#zero-trust-data-masking}
+### **Zero-Trust Data Masking**
 
 A key design choice is that the frontend is never trusted with hidden information. Even though React conditionally renders panels, the security boundary is not the React UI. The actual security boundary is the backend presenter. The full internal game state may contain all player roles, teams, votes, quest results, and hidden information. Before broadcasting, gameStatePresenter.js constructs a different payload for each socket:
 
@@ -354,13 +354,13 @@ A key design choice is that the frontend is never trusted with hidden informatio
 
 This means a malicious client cannot reveal hidden roles by inspecting browser state, because the browser never receives data it is not supposed to see.
 
-### **Sub-Feature 2.2: Pre-Game Strategy Phase** {#sub-feature-2.2:-pre-game-strategy-phase}
+### **Sub-Feature 2.2: Pre-Game Strategy Phase**
 
 ![][image4]*Strategy Phase* 
 
 After every player clicks "Acknowledge Directive" on their Role Reveal Modal, the FSM transitions from ROLE\_ACKNOWLEDGEMENT to PRE\_GAME\_STRATEGY, opening a 30-second window before the first quest begins. During this phase, Evil players gain access to a private Evil-only channel in the chatbox (see Feature 3\) so they can identify their teammates and coordinate without exposing themselves to Good players. The engine enforces both the phase boundary and the channel gating: the Evil chat toggle is only available while the FSM is in PRE\_GAME\_STRATEGY, and the server rejects any message routed to the Evil channel from a Good-aligned socket regardless of what the client sends. When the timer expires, the FSM automatically advances to TEAM\_SELECTION for the first quest, closing the Evil channel for the rest of the match. 
 
-### **Sub-Feature 2.3: Team Selection**  {#sub-feature-2.3:-team-selection}
+### **Sub-Feature 2.3: Team Selection** 
 
 ![][image5]
 
@@ -368,7 +368,7 @@ After every player clicks "Acknowledge Directive" on their Role Reveal Modal, th
 
 The current leader selects a team of size teamSize\[questNumber\] from the active player roster, while every other player sees a waiting state until the proposal is submitted. The engine enforces that only the current leader's submission is accepted and that the team size matches the rulebook for the current quest and player count — any other submission is rejected with an explicit error. The TeamSelectionPanel renders the selection controls only for the leader (see Sub-Feature 4.5 for the panel's UI specifics). 
 
-### **Sub-Feature 2.4: Team Voting**  {#sub-feature-2.4:-team-voting}
+### **Sub-Feature 2.4: Team Voting** 
 
 ![][image6]
 
@@ -376,7 +376,7 @@ The current leader selects a team of size teamSize\[questNumber\] from the activ
 
 Once a team is proposed, every player simultaneously votes to approve or reject it. The server collects votes through the TeamVotingPanel, tallies them, and either advances the game to QUEST\_EXECUTION (majority approval) or transitions to VOTE\_FAILED, which rotates the leader and loops back to TEAM\_SELECTION. Vote history is recorded permanently in the match state so players can scrutinize each other's voting patterns. If five teams are rejected consecutively without a single approval, the QuestManager ends the match with Evil winning automatically — preventing an indefinite stall. 
 
-### **Sub-Feature 2.5: Quest Execution**  {#sub-feature-2.5:-quest-execution}
+### **Sub-Feature 2.5: Quest Execution** 
 
 ## **![][image7]**
 
@@ -387,13 +387,13 @@ Players selected for the quest each privately submit a Success or Sabotage card 
 A sequence diagram from team proposal to quest execution is attached below to show how Socket.IO events move through the server, FSM, QuestManager, and dashboard updates.  
 ![][image8]
 
-### **Sub-Feature 2.6: Assassination** {#sub-feature-2.6:-assassination}
+### **Sub-Feature 2.6: Assassination**
 
 *Assassination Phase*
 
 If Good would otherwise win by completing three successful quests, the FSM transitions to ASSASSINATION\_PHASE rather than ending the game immediately. The AssassinationManager gives the Assassin a one-shot decision to identify Merlin from the player roster — a correct guess flips the outcome to an Evil win, while an incorrect guess confirms Good's victory. Only the Assassin's socket is permitted to submit a target, and the panel (see Sub-Feature 4.5) only renders for that player. Once the Assassin submits their target, the FSM transitions to GAME\_OVER and the outcome is handed off to the Endgame Summary (see Feature 5). 
 
-## **Feature 3: Real-Time Text Chat (Final)** {#feature-3:-real-time-text-chat-(final)}
+## **Feature 3: Real-Time Text Chat (Final)**
 
 ![][image9]  
 ![][image10]  
@@ -414,7 +414,7 @@ The chatbox also supports communication for Evil players during the pre-game str
 
 **Trade-Offs:** Choosing WebSockets over HTTP polling increases backend resource usage because every active player maintains a persistent connection to the server. This consumes more memory and makes future horizontal scaling more complex than a fully stateless REST-based design. However, HTTP polling would introduce noticeable latency because clients would only receive new messages when they next ask the server for updates, which is unsuitable for a live social deduction game where timing, persuasion, and rapid responses matter. The search feature also currently runs entirely on the client, which is simple and fast for normal match-length chat histories, but it means very large logs could eventually become less efficient if the game expands into long-term match archives. We accepted this trade-off because in-game chat histories are small enough for client-side filtering, and keeping search local avoids unnecessary backend complexity for this milestone.
 
-## **Feature 4: Dynamic Player Dashboard (Final)** {#feature-4:-dynamic-player-dashboard-(final)}
+## **Feature 4: Dynamic Player Dashboard (Final)**
 
 ![][image11]  
 *Dashboard Overview*
@@ -427,7 +427,7 @@ The dashboard is intentionally modular, composed of two categories of panels. Fo
 
 **Trade-Offs:** Mapping the dashboard directly to live WebSocket updates makes the interface highly responsive, but it also means the user experience depends heavily on connection stability. If a connection silently drops, the player may temporarily see stale information until the server detects the disconnect or the client reconnects. We deliberately kept this recovery logic out of the dashboard itself and implemented it as a dedicated feature instead (see Feature 6 — Reconnection System), so the dashboard remains a pure rendering layer over whatever state the server hands it. A dropped client is now detected server-side and its state preserved through a grace period, allowing the dashboard to resync on reconnect rather than needing its own recovery logic.
 
-### **Sub-Feature 4.1: Agent Roster Panel**  {#sub-feature-4.1:-agent-roster-panel}
+### **Sub-Feature 4.1: Agent Roster Panel** 
 
 *![][image12]*
 
@@ -437,7 +437,7 @@ The roster panel lists every player currently in the room, with the current lead
 
 ### 
 
-### **Sub-Feature 4.2: Mission Progress Panel**  {#sub-feature-4.2:-mission-progress-panel}
+### **Sub-Feature 4.2: Mission Progress Panel** 
 
  
 
@@ -447,7 +447,7 @@ The mission progress panel displays all five quests in the match as a sequence o
 
 ### 
 
-### **Sub-Feature 4.3: Role Card Panel**  {#sub-feature-4.3:-role-card-panel}
+### **Sub-Feature 4.3: Role Card Panel** 
 
 ![][image13]
 
@@ -455,13 +455,13 @@ The mission progress panel displays all five quests in the match as a sequence o
 
 The role card panel persistently displays the player's classified identity (e.g., *Merlin*, *Mordred's Minion*, *Loyal Servant*) along with their alignment and any intel they are entitled to see, sourced from the server-filtered payload (see Sub-Feature 2.1 for how intel is determined per role). Unlike the one-shot Role Reveal Modal that appears at the start of the match, the role card stays visible throughout the entire match so players can refer back to their role and intel at any time — particularly useful during late-game deduction when memory of the initial reveal may have faded.
 
-### **Sub-Feature 4.4: Private Notepad**  {#sub-feature-4.4:-private-notepad}
+### **Sub-Feature 4.4: Private Notepad** 
 
 *Notepad to jot down key intel*
 
 The private notepad is a free-form text area where each player can record their suspicions, observed claims, and voting patterns without exposing those notes to the rest of the lobby. This is especially important in social deduction games because players often need to track soft information over time — who pushed a suspicious team, who defended whom, who contradicted an earlier statement, or who may be hiding as Merlin. Notes are kept entirely client-side in browser storage, so they remain private even from the server. 
 
-### **Sub-Feature 4.5: Phase-Specific Action Panels**  {#sub-feature-4.5:-phase-specific-action-panels}
+### **Sub-Feature 4.5: Phase-Specific Action Panels** 
 
 ![][image14]  
 *Awaiting Acknowledgements Header*
@@ -482,7 +482,7 @@ The private notepad is a free-form text area where each player can record their 
 
 The dashboard includes **six** elements that appear only during their corresponding FSM phase and disappear once the phase ends. The **Awaiting Acknowledgements header** appears while the engine is in ROLE\_ACKNOWLEDGEMENT, displaying a "Waiting for all agents to acknowledge their directives" message until every player has confirmed their role via the Role Reveal Modal (see Sub-Feature 2.1). The **Strategy Phase header** appears for 30 seconds after every player acknowledges their role, showing a "Strategy Phase active" banner with a countdown timer; during this window, Evil players gain access to the Evil-only chat channel (see Feature 3\) to coordinate before the first quest (see Sub-Feature 2.2). The **TeamSelectionPanel** renders selection controls only for the current leader (see Sub-Feature 2.3). The **TeamVotingPanel** shows yes/no controls during the voting phase and disappears once each player has voted (see Sub-Feature 2.4). The **QuestExecutionPanel** appears only for players selected for the current quest, with the Sabotage option visible only to Evil players (see Sub-Feature 2.5). The **AssassinationPanel** appears only on the Assassin's dashboard during the endgame (see Sub-Feature 2.6). All six are driven by the same per-socket phase data — when the FSM advances the match to a new state, the relevant element appears on every dashboard automatically, with no manual refresh needed. 
 
-## **Feature 5: Endgame Summary (Final)** {#feature-5:-endgame-summary-(final)}
+## **Feature 5: Endgame Summary (Final)**
 
 ## 
 
@@ -502,7 +502,7 @@ The endgame summary also connects the live match to persistent records. Once the
 
 **Trade-Offs:** The endgame flow writes every match to MongoDB, including guest matches that may never be reviewed. This adds database dependency to the terminal state and creates persistent records for short-lived guest sessions. We accepted this because the Match document is also the foundation for Match History (Feature 8\) and User Profile (Feature 9\) — without saving every match, those features have no data to draw from.
 
-## **Feature 6: Reconnection System (Final)** {#feature-6:-reconnection-system-(final)}
+## **Feature 6: Reconnection System (Final)**
 
 ![][image17]  
 ***Sequence Diagram: Reconnection Grace Period and Socket ID Remapping***
@@ -521,7 +521,7 @@ If the window lapses without a reconnection, the match can no longer continue wi
 
 ## 
 
-## **Feature 7: Interactive Beginner Tutorial (Final)** {#feature-7:-interactive-beginner-tutorial-(final)}
+## **Feature 7: Interactive Beginner Tutorial (Final)**
 
 ***Home Tutorial Overlay:***  
  ***first-time users are introduced to joining or hosting a session through a spotlight card***
@@ -548,7 +548,7 @@ The tutorial is distinct from the "How to Play" guide (CipherGuideModal), which 
 
 ## 
 
-## **Feature 8: Match History & Analytics Log (Final)** {#feature-8:-match-history-&-analytics-log-(final)}
+## **Feature 8: Match History & Analytics Log (Final)**
 
 ***Match History Data Model***   
 ***Match embeds quest history and vote attempts, while signed-in players are referenced through User IDs.***
@@ -569,7 +569,7 @@ Signed-in and guest players are handled differently. A signed-in player is store
 
 ## 
 
-## **Feature 9: User Profile (Final)** {#feature-9:-user-profile-(final)}
+## **Feature 9: User Profile (Final)**
 
 ***User Profile Overview***  
 ***signed-in players can view their identity and cumulative performance statistics.***
@@ -588,7 +588,7 @@ These counters are updated once per match, immediately after GAME\_OVER, via a b
 
 **Trade-Offs:** Our schema has only one real relationship — a Match referencing the Users who played in it. Everything else, like quest history and votes, is naturally owned by a single match and is embedded directly rather than normalized across tables. A relational database would enforce that Match-to-User reference at the database level through a foreign key; MongoDB does not, so if a User document were ever deleted, old Match records could be left pointing to a user that no longer exists, with nothing to catch it. We accepted this because we prioritized iteration speed: as a two-person team, we continued refining core game rules throughout development, including changes made in this final milestone, such as widening the match-outcome options to account for abandoned games. MongoDB lets us make that kind of change without coordinating a schema migration across both of our environments. This risk is also low in our current production version, since we haven't implemented account deletion — the one scenario that would actually break this, a User being removed while old matches still reference them, cannot currently happen. It's something we'd need to revisit if that feature is ever added. We recognize a relational database would have worked equally well for a project of this size — this reflects a velocity trade-off that continued to pay off as our game rules kept evolving, right through to this final milestone.
 
-# **Software Engineering** {#software-engineering}
+# **Software Engineering**
 
 For Cipher.gg, a complex, real-time multiplayer engine, we recognized early on that without strict engineering and collaboration systems, our codebase would quickly become unmaintainable. Thus, we have adopted several Software Engineering (SE) practices to manage our development lifecycle.
 
@@ -618,13 +618,13 @@ Another guiding SE principle for our project is the strict decoupling of our fro
 
 To enforce our engineering standards automatically, we adopted a CI/CD pipeline using GitHub Actions to act as an automated gatekeeper. The full pipeline configuration and stages are documented in the CI/CD section below. 
 
-# **Quality Control** {#quality-control}
+# **Quality Control**
 
-## **Testing Automation** {#testing-automation}
+## **Testing Automation**
 
 In a real-time state orchestration engine managing complex rulesets like Avalon, manual testing of every possible edge case such as role distributions, dynamic quest team sizes, vote rejection limits, and the exact trigger conditions for the Assassination phase is both tedious and highly susceptible to human error. Thus, automated testing is essential because it provides a safety net as we scale the engine from the 5-player prototype into a 5 to 10 players game system. We rely on both unit and integration testing because they catch different classes of bugs: unit tests isolate a single function or class so failures point to exactly which piece of logic broke, while integration tests exercise real Socket.IO connections and MongoDB queries end-to-end, catching issues that only surface once modules are wired together. The following sections document our CI/CD pipeline, unit test coverage, integration test coverage, and a structured testing-case table maintained as a separate document. 
 
-## **Risk-Based Testing Strategy** {#risk-based-testing-strategy}
+## **Risk-Based Testing Strategy**
 
 Because Cipher.gg is a real-time hidden-role game, we did not treat all features as equal testing targets. UI-only features such as button styling or layout are lower risk, while backend state transitions, role privacy, reconnection, and persistence are high risk because a bug there can corrupt the match or leak hidden information. We therefore prioritized automated tests around:
 
@@ -640,7 +640,7 @@ Because Cipher.gg is a real-time hidden-role game, we did not treat all features
 
 This strategy reflects the risk profile of our system. A visual bug may reduce usability, but a backend FSM bug can change the winner, leak a hidden role, or corrupt a saved match. Therefore, our automated testing effort focuses most heavily on the backend game engine, Socket.IO integration, and MongoDB persistence. Frontend behaviours such as chat search, tutorial display, and visual rendering are currently covered through manual testing, ESLint, and Vite build checks. Component or end-to-end frontend tests are listed as a future improvement.
 
-## **CI / CD** {#ci-/-cd}
+## **CI / CD**
 
 A robust Continuous Integration and Continuous Deployment (CI/CD) pipeline is strictly required in our project to protect the integrity of our repository as we collaborate as relying on local, simple test automation is insufficient because it depends on developers remembering to execute the scripts before committing. By utilizing GitHub Actions, our CI/CD pipeline acts as an automated gatekeeper and is configured to trigger automatically on pushes and Pull Requests to the main branch.
 
@@ -654,11 +654,11 @@ These stages are critical as it enforces a mandatory quality standard before any
 
 On the deployment side, merged code to main triggers automatic deployments through our hosting providers — Vercel watches the `client/` directory and re-deploys the React frontend on every push, while Railway does the same for the `server/` directory. This means a successful PR merge moves changes through testing into production with no manual deployment step, keeping our deployed prototype always in sync with the main branch. 
 
-## **Unit Testing** {#unit-testing}
+## **Unit Testing**
 
 Unit testing involves isolating specific components, functions, or classes of the software and testing them independently to verify they perform exactly as intended. Our Jest unit tests cover role assignment, voting rules, quest logic, assassination logic, and win-condition evaluation. For a game engine based on The Resistance: Avalon, unit testing is critical because it verifies the underlying rules before they are exposed to network latency, Socket.IO events, or database persistence.
 
-### **Unit Testing Coverage: The Game Engine** {#unit-testing-coverage:-the-game-engine}
+### **Unit Testing Coverage: The Game Engine**
 
 By testing both valid and invalid data boundaries, we ensured that the engine behaves predictably as the game scales beyond the original 5-player prototype. Specifically, we tested core state mutations to verify role distribution, team proposal validation, voting outcomes, quest resolution, and win-condition calculation.
 
@@ -672,11 +672,11 @@ We also considered abnormal action cases and player permissions, such as verifyi
 
 ## 
 
-## **Integration Testing** {#integration-testing}
+## **Integration Testing**
 
 Integration testing verifies that different modules or services in the application work correctly when combined. Our suite includes integration tests spanning full Socket.IO game loops at 5, 7, and 10 player lobby sizes, plus dedicated tests for MongoDB persistence and user statistics updates. Integration testing is also important as it ensures data flows seamlessly across the network boundary, which in our case is between the React client and Node.js server.
 
-### **Integration Testing Feature: The Socket.IO Pipeline** {#integration-testing-feature:-the-socket.io-pipeline}
+### **Integration Testing Feature: The Socket.IO Pipeline**
 
 We tested the interaction between Socket.IO clients, the Node.js socket handlers, the backend game engine, and MongoDB persistence. This testing layer is crucial because a unit test can prove that an individual module works in isolation, but it cannot prove that real clients can successfully move through an entire match over WebSocket events.
 
@@ -684,7 +684,7 @@ Our integration tests simulate real player sockets joining a private room, ready
 
 We also verified that the server persists completed matches correctly after game over. After a full game loop, the tests query MongoDB to confirm that a Match record was saved with the correct room code, winner, quest history, player roles, and team data. For signed-in test users, the integration tests also confirm that User statistics such as matchesPlayed, winsAsEvil, and winsAsGood are correctly updated after each match concludes. This ensures that the live real-time game flow is correctly connected to long-term persistence.
 
-## **Testing Documentation** {#testing-documentation}
+## **Testing Documentation**
 
 To keep the README readable, the full structured testing table is maintained as a separate Excel document:
 
@@ -692,7 +692,7 @@ To keep the README readable, the full structured testing table is maintained as 
 
 The testing table maps our existing Jest and integration tests into a formal test-case format covering normal gameplay, abnormal inputs, edge cases, boundary cases, Socket.IO real-time flows, and MongoDB persistence.
 
-### **Testing Table Structure** {#testing-table-structure}
+### **Testing Table Structure**
 
 The full testing table is maintained as a separate Excel document to keep the README readable. Instead of grouping tests only by generic categories such as "edge cases" or "unit tests", we reorganized the table by README feature. This makes it easier to evaluate whether each major feature has meaningful test coverage. Each feature is then broken down by scenario type:
 
@@ -714,7 +714,7 @@ We chose this structure because Cipher.gg's risk is not evenly distributed acros
 
 ### 
 
-### **Testing Coverage Summary** {#testing-coverage-summary}
+### **Testing Coverage Summary**
 
 | Test Category | Coverage |
 | ----- | ----- |
@@ -725,7 +725,7 @@ We chose this structure because Cipher.gg's risk is not evenly distributed acros
 | Persistence Testing | Match records, player role reveal data, User statistics updates |
 | Frontend Manual Testing | Chatbox search, no-results state, chat send/receive regression |
 
-# **Known Limitations & Looking Ahead** {#known-limitations-&-looking-ahead}
+# **Known Limitations & Looking Ahead**
 
 Although Cipher.gg now supports a complete real-time Avalon game loop for 5 to 10 players, including reconnection, onboarding, and post-game history, several limitations remain outside the current milestone's scope.
 
@@ -739,7 +739,7 @@ Finally, three of our originally planned extension features were not implemented
 * **Spectator Mode** — allowing outside observers to watch a live game through a filtered data stream that hides secret role information.  
 * **Achievements** — unlockable badges for milestones such as win streaks, tracked across multiple games.
 
-# **Conclusion** {#conclusion}
+# **Conclusion**
 
 Milestone 3 marked the transition from a functional Avalon platform to a complete, more complete and production-like platform. Where Milestone 2 focused on expanding the game engine to support dynamic lobbies and full rule coverage, this milestone focused on everything surrounding the match itself: surviving failure, welcoming new players, and giving results a life beyond the moment the game ends.
 
