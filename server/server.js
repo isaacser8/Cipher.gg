@@ -13,7 +13,20 @@ const friendRoutes = require("./routes/friendRoutes");
 
 // App & server setup
 const app = express();
-app.use(cors());
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://cipher-gg.vercel.app",
+];
+
+app.use(
+  cors({
+    origin: allowedOrigins,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  }),
+);
+
 app.use(express.json());
 app.use(clerkMiddleware());
 
@@ -25,7 +38,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:5173", "https://cipher-gg.vercel.app"],
+    origin: allowedOrigins,
     methods: ["GET", "POST"],
   },
 });

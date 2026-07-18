@@ -8,6 +8,11 @@ function makePlayers(count) {
 }
 
 describe('RoleAssigner', () => {
+    // Zero player test
+    test('should reject zero players', () => {
+        expect(() => RoleAssigner.assignRoles(makePlayers(0)))
+            .toThrow('Unsupported player count');
+        });
 
     // Validation test 
     test('should reject fewer than 5 players and more than 10 players', () => {

@@ -58,6 +58,15 @@ describe("Full Loop: Vote Hammer", () => {
       expect(savedMatch).toBeTruthy();
       expect(savedMatch.winner).toBe("evil");
       expect(savedMatch.winReason).toContain("Five consecutive teams rejected");
+      expect(savedMatch.questHistory).toBeTruthy();
+      expect(savedMatch.questHistory.length).toBeGreaterThan(0);
+
+      const voteHammerRecord = savedMatch.questHistory[0];
+
+      expect(voteHammerRecord.questNumber).toBe(1);
+      expect(voteHammerRecord.teamVoteHistory).toBeTruthy();
+      expect(voteHammerRecord.teamVoteHistory).toHaveLength(5);
+      expect(voteHammerRecord.endedByFiveRejections).toBe(true);
     } finally {
       disconnectSockets(sockets);
       await new Promise((resolve) => setTimeout(resolve, 3500));
