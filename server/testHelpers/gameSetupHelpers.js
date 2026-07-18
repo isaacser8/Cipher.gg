@@ -16,6 +16,7 @@ const {
   createTestSockets,
   collectRoleAssignments,
 } = require("./socketTestUtils");
+const User = require("../models/User");
 
 async function setupStartedGame({
   playerCount,
@@ -31,6 +32,15 @@ async function setupStartedGame({
     name: `${namePrefix}${i + 1}_${runId}`,
     clerkId: useLoggedInUsers ? `${clerkPrefix}_${runId}_${i + 1}` : null,
   }));
+
+  if (useLoggedInUsers) {
+    await User.insertMany(
+      agents.map((agent) => ({
+        clerkId: agent.clerkId,
+        username: agent.name.slice(0, 15),
+      })),
+    );
+  }
 
   const sockets = await createTestSockets({ agents, port });
 
