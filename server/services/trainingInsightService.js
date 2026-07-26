@@ -1,9 +1,5 @@
 const OpenAI = require("openai");
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 function buildFallbackInsights(user, recentMatches = []) {
   const stats = user.stats || {};
   const matchesPlayed = stats.matchesPlayed || 0;
@@ -64,17 +60,21 @@ async function generateTrainingInsights({ user, recentMatches }) {
     return buildFallbackInsights(user, recentMatches);
   }
 
-    const safePayload = {
+  const client = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+
+  const safePayload = {
     username: user.username,
     stats: user.stats,
     recentMatches: recentMatches.map((match) => ({
-        winner: match.winner,
-        winReason: match.winReason,
-        myRole: match.myRole,
-        myTeam: match.myTeam,
-        didWin: match.didWin,
-        questSummary: match.questSummary,
-        createdAt: match.createdAt,
+      winner: match.winner,
+      winReason: match.winReason,
+      myRole: match.myRole,
+      myTeam: match.myTeam,
+      didWin: match.didWin,
+      questSummary: match.questSummary,
+      createdAt: match.createdAt,
     })),
   };
 
