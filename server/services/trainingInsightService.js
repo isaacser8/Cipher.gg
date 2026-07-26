@@ -9,7 +9,10 @@ function buildFallbackInsights(user, recentMatches = []) {
   const matchesPlayed = stats.matchesPlayed || 0;
   const winsAsGood = stats.winsAsGood || 0;
   const winsAsEvil = stats.winsAsEvil || 0;
-  const assassinationAccuracy = stats.assassinationAccuracy || 0;
+  const successfulAssassinations = stats.successfulAssassinations || 0;
+
+  const assassinationAccuracy =
+    winsAsEvil > 0 ? Math.round((successfulAssassinations / winsAsEvil) * 100) : 0;
 
   const insights = [];
 
@@ -21,7 +24,7 @@ function buildFallbackInsights(user, recentMatches = []) {
     });
   }
 
-  if (assassinationAccuracy < 40 && matchesPlayed >= 3) {
+  if (winsAsEvil > 0 && assassinationAccuracy < 40 && matchesPlayed >= 3) {
     insights.push({
       title: "Improve Merlin Detection",
       message:
