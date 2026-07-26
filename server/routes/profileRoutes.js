@@ -2,6 +2,7 @@ const express = require("express");
 const { getAuth, clerkClient } = require("@clerk/express");
 const User = require("../models/User");
 const Match = require("../models/Match");
+const { generateTrainingInsights } = require("../services/trainingInsightService");
 
 const router = express.Router();
 
@@ -97,6 +98,11 @@ router.get("/me", async (req, res) => {
       };
     });
 
+    const trainingInsights = await generateTrainingInsights({
+      user,
+      recentMatches: formattedRecentMatches,
+    });
+
     return res.json({
       user: {
         id: user._id.toString(),
@@ -113,6 +119,7 @@ router.get("/me", async (req, res) => {
         },
       },
       recentMatches: formattedRecentMatches,
+      trainingInsights,
     });
   } catch (error) {
     console.error("Profile route error:", error);

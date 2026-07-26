@@ -29,6 +29,7 @@ export interface UserProfile {
   username: string;
   stats: ProfileStats;
   recentMatches: ProfileMatch[];
+  trainingInsights: TrainingInsight[];
 }
 
 export interface FriendStats {
@@ -55,4 +56,9 @@ export interface FriendRequest {
   friendshipId: string;
   requester: FriendUser;
   createdAt: string;
+}
+
+export interface TrainingInsight {
+  title: string;
+  message: string;
 }
