@@ -16,7 +16,7 @@ import type { UserProfile } from '../types/profile';
 const API_BASE_URL =
   import.meta.env.VITE_API_URL || 'http://localhost:5005';
 
-type ProfileTab = 'overview' | 'history' | 'friends';
+type ProfileTab = 'overview' | 'history' | 'training' | 'friends';
 
 export default function Profile() {
 
@@ -61,6 +61,7 @@ export default function Profile() {
         setProfile({
           ...data.user,
           recentMatches: data.recentMatches ?? [],
+          trainingInsights: data.trainingInsights ?? [],
         });
       } catch (err) {
         console.error(err);
@@ -193,6 +194,17 @@ export default function Profile() {
             }`}
           >
             Match History
+          </button>
+
+          <button
+            onClick={() => setActiveTab('training')}
+            className={`px-5 py-3 rounded-xl border text-xs font-black uppercase tracking-widest transition-colors ${
+              activeTab === 'training'
+                ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-300'
+                : 'bg-white/5 border-white/10 text-slate-400 hover:bg-white/10'
+            }`}
+          >
+            Training
           </button>
 
           <button
@@ -335,6 +347,46 @@ export default function Profile() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </section>
+        )}
+        
+        {activeTab === 'training' && (
+          <section className="p-6 rounded-2xl bg-[#11151C]/90 border border-white/10 shadow-xl">
+            <div className="flex items-center gap-3 mb-5">
+              <Crosshair className="w-6 h-6 text-orange-400" />
+              <h2 className="text-xl font-black uppercase tracking-widest">
+                Player Training
+              </h2>
+            </div>
+
+            <p className="text-sm text-slate-400 mb-6">
+              AI-generated strategy insights based on your saved match history and player statistics.
+            </p>
+
+            {profile.trainingInsights.length === 0 ? (
+              <p className="text-slate-500 text-sm">
+                No training insights available yet. Complete more matches to unlock strategy tips.
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {profile.trainingInsights.map((insight, index) => (
+                  <div
+                    key={`${insight.title}-${index}`}
+                    className="p-5 rounded-xl bg-black/30 border border-white/5"
+                  >
+                    <p className="text-xs text-orange-400 font-black uppercase tracking-widest mb-2">
+                      Insight {index + 1}
+                    </p>
+                    <h3 className="text-lg font-black text-slate-100 mb-2">
+                      {insight.title}
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">
+                      {insight.message}
+                    </p>
+                  </div>
+                ))}
               </div>
             )}
           </section>
