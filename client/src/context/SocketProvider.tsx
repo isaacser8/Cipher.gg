@@ -5,7 +5,6 @@ import { SocketContext } from './SocketContext';
 
 export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
   const { isLoaded } = useUser();
 
   useEffect(() => {
@@ -18,25 +17,14 @@ export const SocketProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSocket(socketInstance);
 
-    socketInstance.on('connect', () => {
-      console.log('Global Socket Connected:', socketInstance.id);
-      setIsConnected(true);
-    });
-
-    socketInstance.on('disconnect', () => {
-      console.log('Global Socket Disconnected');
-      setIsConnected(false);
-    });
-
     return () => {
       socketInstance.disconnect();
       setSocket(null);
-      setIsConnected(false);
     };
   }, [isLoaded]);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected }}>
+    <SocketContext.Provider value={{ socket }}>
       {children}
     </SocketContext.Provider>
   );

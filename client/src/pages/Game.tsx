@@ -7,7 +7,12 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Shield, ChevronDown, ChevronUp, Check, X } from "lucide-react";
 import { useParams, useLocation } from "react-router-dom";
 import { useSocket } from "../context/useSocket";
-import type { QuestRecord, TeamVoteAttempt } from '../types/game';
+import type { 
+  MyRole,
+  Player,
+  QuestRecord, 
+  TeamVoteAttempt,
+} from '../types/game';
 
 // Actions
 import TeamSelectionPanel from "../components/panels/TeamSelectionPanel";
@@ -27,23 +32,6 @@ import RoleCardPanel from '../components/panels/RoleCardPanel';
 import PrivateNotepad from '../components/panels/PrivateNotepad';
 
 // Interfaces
-interface Player {
-  id: string;
-  name: string;
-  isLeader?: boolean;
-  isOnTeam?: boolean;
-  role?: string;
-  team?: string;
-}
-interface Intel {
-  id: string;
-  name: string;
-}
-interface MyRole {
-  role: string;
-  team: string;
-  specialInfo: Intel[];
-}
 interface GameState {
   phase: string;
   currentQuest: number;

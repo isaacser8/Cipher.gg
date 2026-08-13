@@ -34,7 +34,11 @@ function buildClientGameState(roomCode) {
 }
 
 function broadcastGameState(io, roomCode) {
-  io.to(roomCode).emit("game_state_update", buildClientGameState(roomCode));
+  const gameState = buildClientGameState(roomCode);
+
+  if (!gameState) return;
+
+  io.to(roomCode).emit("game_state_update", gameState);
 }
 
 module.exports = {

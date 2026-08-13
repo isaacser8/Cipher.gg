@@ -1,15 +1,5 @@
 import { Eye } from 'lucide-react';
-
-interface Intel {
-  id: string;
-  name: string;
-}
-
-interface MyRole {
-  role: string;
-  team: string;
-  specialInfo: Intel[];
-}
+import type { MyRole } from "../../types/game";
 
 interface Props {
   myRole: MyRole;

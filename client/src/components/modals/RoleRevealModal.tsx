@@ -1,12 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield } from 'lucide-react';
 import type { Socket } from "socket.io-client";
-
-interface MyRole {
-  role: string;
-  team: string;
-  specialInfo?: { id: string; name: string }[]; 
-}
+import type { MyRole } from "../../types/game";
 
 interface Props {
   showRoleReveal: boolean;
