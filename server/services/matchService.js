@@ -12,7 +12,7 @@ async function updateUserStatsAfterMatch({
   }
   
   const operations = [];
-
+  
   for (const player of roomPlayers) {
     if (!player.dbId) continue;
 
@@ -54,7 +54,11 @@ async function updateUserStatsAfterMatch({
 }
 
 async function saveMatchRecord({ roomCode, gameResult, game, roomPlayers }) {
-  if (!game || !game.roleAssignments) return;
+  if (!game?.roleAssignments) {
+    throw new Error(
+      `Cannot save match for room ${roomCode}: role assignments are missing.`,
+    );
+  }
 
   const formattedPlayers = roomPlayers.map((player) => {
     const roleData = game.roleAssignments.get(player.id);
@@ -95,5 +99,4 @@ async function saveMatchRecord({ roomCode, gameResult, game, roomPlayers }) {
 
 module.exports = {
   saveMatchRecord,
-  updateUserStatsAfterMatch,
 };

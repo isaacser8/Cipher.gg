@@ -1,11 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
-import { type QuestRecord } from '../../types/game';
-
-interface Player {
-  id: string;
-  name: string;
-}
+import type { Player, QuestRecord } from '../../types/game';
 
 interface NodeDebriefModalProps {
   selectedNodeHistory: QuestRecord | null;

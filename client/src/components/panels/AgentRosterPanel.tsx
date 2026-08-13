@@ -1,12 +1,6 @@
 import { useState } from 'react';
 import { Flag } from 'lucide-react';
-
-interface Player {
-  id: string;
-  name: string;
-  isLeader?: boolean;
-  isOnTeam?: boolean;
-}
+import type { Player } from "../../types/game";
 
 interface Props {
   players: Player[];
