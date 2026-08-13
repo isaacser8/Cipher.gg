@@ -174,10 +174,26 @@ function registerGameHandlers(io, socket) {
 
         if (result.state === "VOTE_FAILED") {
           setTimeout(() => {
-            const next = game.advanceAfterFailedVote();
+            const activeGame = activeGames[roomCode];
 
-            io.to(roomCode).emit("vote_failed_advance", next);
-            broadcastGameState(io, roomCode);
+            if (
+              activeGame !== game ||
+              game.getState().phase !== "VOTE_FAILED"
+            ) {
+              return;
+            }
+
+            try {
+              const next = game.advanceAfterFailedVote();
+
+              io.to(roomCode).emit("vote_failed_advance", next);
+              broadcastGameState(io, roomCode);
+            } catch (err) {
+              console.error(
+                `Failed to advance rejected vote in room ${roomCode}:`,
+                err,
+              );
+            }
           }, 3000);
         } else if (result.phase === "GAME_OVER") {
           await saveMatchRecord({
@@ -209,6 +225,14 @@ function registerGameHandlers(io, socket) {
         io.to(roomCode).emit("quest_result", result);
 
         setTimeout(async () => {
+          const activeGame = activeGames[roomCode];
+
+          if (
+            activeGame !== game ||
+            game.getState().phase !== "QUEST_RESULT"
+          ) {
+            return;
+          }
           try {
             const next = game.advanceAfterQuestResult();
 
@@ -227,7 +251,10 @@ function registerGameHandlers(io, socket) {
 
             broadcastGameState(io, roomCode);
           } catch (err) {
-            socket.emit("game_error", err.message);
+            console.error(
+            `Failed to advance quest result in room ${roomCode}:`,
+              err,
+            );
           }
         }, 4000);
       }

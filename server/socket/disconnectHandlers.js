@@ -43,19 +43,18 @@ function registerDisconnectHandlers(io, socket) {
       if (!player || player.id !== socket.id || player.isConnected) return;
 
       const game = activeGames[roomCode];
-
-      // Mid-game permanent eviction: abandon the match BEFORE mutating the
-      // roster — saveMatchRecord needs every roomPlayers entry, including
-      // the departing player
+      let abandonResult = null;
+      // End and save the match before publishing the completion event.
+      // The original roster is still intact here, so all players are persisted.
       if (game && game.getState().phase !== "GAME_OVER") {
-        const result = game.forceAbandon(
+        abandonResult = game.forceAbandon(
           `Agent ${displayName} disconnected and did not reconnect in time.`,
         );
 
         try {
           await saveMatchRecord({
             roomCode,
-            gameResult: result,
+            gameResult: abandonResult,
             game,
             roomPlayers: rooms[roomCode],
           });
@@ -64,29 +63,36 @@ function registerDisconnectHandlers(io, socket) {
             `❌ Failed to save abandoned match for room ${roomCode}:`,
             err,
           );
-        }
 
-        io.to(roomCode).emit("game_over", result);
-        broadcastGameState(io, roomCode);
+            if (isTestEnv) {
+              throw err;
+            }
+        }
       }
 
       rooms[roomCode] = rooms[roomCode].filter(
         (roomPlayer) => roomPlayer.name !== displayName,
       );
 
+      if (player.isHost && rooms[roomCode].length > 0) {
+        rooms[roomCode][0].isHost = true;
+      }
+
       io.to(roomCode).emit("player_left", {
         id: socket.id,
         name: displayName,
       });
 
-      if (player.isHost && rooms[roomCode].length > 0) {
-        rooms[roomCode][0].isHost = true;
-      }
-
       if (rooms[roomCode].length === 0) {
         deleteRoom(roomCode);
       } else {
         io.to(roomCode).emit("roster_update", rooms[roomCode]);
+      }
+
+      // Publish game_over only after persistence and roster cleanup finish.
+      if (abandonResult) {
+        io.to(roomCode).emit("game_over", abandonResult);
+        broadcastGameState(io, roomCode);
       }
     }, gracePeriodMs);
   });
