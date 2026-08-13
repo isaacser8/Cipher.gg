@@ -138,37 +138,56 @@ export default function Game() {
   const [showCipherGuide, setShowCipherGuide] = useState(false);
 
   useEffect(() => {
-    if (!socket) return;
-    socket.emit("join_game_dashboard", { roomCode, name: myName });
+    if (!socket || !roomCode || myName === "Unknown Agent") return;
 
-    socket.on("role_assigned", (roleData: MyRole) => {
+    const handleRoleAssigned = (roleData: MyRole) => {
       setMyRole(roleData);
       setShowRoleReveal(true);
-    });
+    };
 
-    socket.on("game_state_update", (gs: GameState) => {
+    const handleGameStateUpdate = (gs: GameState) => {
+      if (!gs) return;
+
       setGameState((prev) => {
         if (gs.phase !== prev.phase) {
           setSelectedTeam([]);
           setSniperTarget(null);
           setIsPanelMinimized(false);
         }
+
         return gs;
       });
-    });
-
-    // join_room (not join_game_dashboard) is what actually re-associates this
-    // socket with the room and triggers the server-side reconnect resync.
-    const handleReconnect = () => {
-      socket.emit("join_room", { roomCode, displayName: myName, action: "join" });
     };
 
-    socket.io.on("reconnect", handleReconnect);
+    const handleGameOver = (result: Partial<GameState>) => {
+      setGameState((prev) => ({
+        ...prev,
+        ...result,
+        phase: "GAME_OVER",
+      }));
+    };
+
+    const joinRoom = () => {
+      socket.emit("join_room", {
+        roomCode,
+        displayName: myName,
+        action: "join",
+      });
+    };
+
+    socket.on("role_assigned", handleRoleAssigned);
+    socket.on("game_state_update", handleGameStateUpdate);
+    socket.on("game_over", handleGameOver);
+    socket.io.on("reconnect", joinRoom);
+
+    // Also join on the socket's initial connection/page load.
+    joinRoom();
 
     return () => {
-      socket.off("role_assigned");
-      socket.off("game_state_update");
-      socket.io.off("reconnect", handleReconnect);
+      socket.off("role_assigned", handleRoleAssigned);
+      socket.off("game_state_update", handleGameStateUpdate);
+      socket.off("game_over", handleGameOver);
+      socket.io.off("reconnect", joinRoom);
     };
   }, [socket, roomCode, myName]);
 
